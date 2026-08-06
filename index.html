@@ -337,9 +337,9 @@
       checkWebNfcSupport();
       setupFilterRekap();
 
-      if (!API_URL || API_URL === 'https://script.google.com/macros/s/AKfycby2awCSa5CVQOaJVUUuPKaJmanS7UVmiLG2zu7L5tkZRRR_ayKjbcb1At06Jde2j30K/exec') {
+      if (!API_URL || API_URL.indexOf('script.google.com') === -1) {
         document.getElementById('api-not-configured').classList.remove('hidden');
-        setConnStatus(false, 'URL Web App belum diatur');
+        setConnStatus(false, 'URL Web App belum diatur / tidak valid');
         return;
       }
 
