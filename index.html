@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistem Presensi NFC Sekolah</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              900: '#1e3a8a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.1); opacity: 0.4; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+    .nfc-pulse {
+      animation: pulse-ring 2s infinite ease-in-out;
+    }
+    .spin {
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 font-sans min-h-screen flex flex-col text-slate-800">
+
+  <!-- Navigation Bar -->
+  <header class="bg-brand-700 text-white shadow-lg sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center space-x-3">
+        <i class="fa-solid fa-wifi text-2xl text-emerald-400 rotate-90"></i>
+        <div>
+          <h1 class="font-bold text-lg leading-tight">Presensi Web NFC</h1>
+          <p class="text-xs text-brand-100 flex items-center gap-1">
+            <span id="conn-dot" class="w-2 h-2 rounded-full bg-amber-400"></span>
+            <span id="conn-text">Menghubungkan ke spreadsheet...</span>
+          </p>
+        </div>
+      </div>
+      <div class="flex space-x-1 sm:space-x-2">
+        <button onclick="switchTab('kios')" id="tab-kios" class="px-3 py-1.5 rounded-lg text-sm font-medium transition bg-brand-900 text-white shadow-inner">
+          <i class="fa-solid fa-mobile-screen-button md:mr-1"></i> <span class="hidden md:inline">Mode Kios</span>
+        </button>
+        <button onclick="switchTab('siswa')" id="tab-siswa" class="px-3 py-1.5 rounded-lg text-sm font-medium transition hover:bg-brand-600 text-brand-100">
+          <i class="fa-solid fa-address-card md:mr-1"></i> <span class="hidden md:inline">Data Siswa</span>
+        </button>
+        <button onclick="switchTab('laporan')" id="tab-laporan" class="px-3 py-1.5 rounded-lg text-sm font-medium transition hover:bg-brand-600 text-brand-100">
+          <i class="fa-solid fa-clipboard-user md:mr-1"></i> <span class="hidden md:inline">Rekap Absen</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Content Container -->
+  <main class="flex-grow max-w-6xl w-full mx-auto p-4">
+
+    <!-- Peringatan jika API_URL belum diisi -->
+    <div id="api-not-configured" class="hidden mb-4 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm">
+      <p class="font-bold flex items-center gap-2"><i class="fa-solid fa-triangle-exclamation"></i> URL Web App belum diatur.</p>
+      <p class="text-xs mt-1">Buka file ini, cari baris <code class="bg-rose-100 px-1 rounded">const API_URL</code> di bagian bawah, lalu isi dengan URL deploy Google Apps Script kamu.</p>
+    </div>
+
+    <!-- TAB 1: KIOS SCANNER (NFC READER) -->
+    <section id="sec-kios" class="space-y-6">
+
+      <!-- Status NFC Support Indicator -->
+      <div id="nfc-support-alert" class="hidden p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 flex items-center justify-between text-sm">
+        <div class="flex items-center space-x-3">
+          <i class="fa-solid fa-triangle-exclamation text-amber-500 text-xl"></i>
+          <div>
+            <p class="font-bold">Web NFC tidak terdeteksi di browser ini.</p>
+            <p class="text-xs">Gunakan browser Google Chrome di HP Android melalui koneksi HTTPS. Gunakan modul "Simulasi Kartu" di bawah untuk pengujian di komputer.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Main NFC Terminal View -->
+        <div class="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center relative overflow-hidden min-h-[420px]">
+
+          <!-- Live Time Display -->
+          <div class="absolute top-4 right-4 text-right">
+            <div id="live-time" class="text-2xl font-bold text-slate-700 tracking-wider">00:00:00</div>
+            <div id="live-date" class="text-xs text-slate-400 font-medium">Senin, 1 Januari 2026</div>
+          </div>
+
+          <!-- NFC Tap Target Area -->
+          <div class="my-8 flex flex-col items-center">
+            <div id="nfc-icon-bg" class="w-36 h-36 rounded-full bg-brand-50 border-4 border-brand-500 flex items-center justify-center text-brand-600 mb-4 transition-all duration-300 nfc-pulse shadow-md">
+              <i class="fa-solid fa-wifi text-6xl rotate-90"></i>
+            </div>
+            <h2 id="terminal-status-title" class="text-xl font-bold text-slate-800">Tempelkan Kartu NFC</h2>
+            <p id="terminal-status-sub" class="text-sm text-slate-500 mt-1 max-w-xs">Dekatkan kartu identitas siswa ke bagian belakang perangkat Android ini</p>
+          </div>
+
+          <!-- Alert Notification Box -->
+          <div id="scan-feedback" class="hidden w-full max-w-md p-4 rounded-xl text-center font-medium transition-all duration-300 shadow-md">
+            <!-- Feedback content injected via JS -->
+          </div>
+
+          <!-- Control Button for Web NFC -->
+          <div class="mt-4 flex flex-wrap gap-2 justify-center">
+            <button id="btn-toggle-nfc" onclick="initNFCReader()" class="px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm transition shadow-sm flex items-center gap-2">
+              <i class="fa-solid fa-power-off"></i> Aktifkan Sensor NFC
+            </button>
+          </div>
+        </div>
+
+        <!-- Right Side: Simulator & Today Summary -->
+        <div class="space-y-6">
+
+          <!-- Simulator Card Tap -->
+          <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                <i class="fa-solid fa-flask text-purple-500"></i> Simulator Tap Kartu
+              </h3>
+              <span class="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-semibold">Dev Tool</span>
+            </div>
+            <p class="text-xs text-slate-500 mb-3">Gunakan jika Anda mencoba di PC/Laptop tanpa sensor NFC fisik.</p>
+
+            <div class="space-y-2">
+              <label class="block text-xs font-semibold text-slate-600">Pilih Siswa Terdaftar:</label>
+              <select id="sim-siswa-select" class="w-full text-xs p-2 rounded-lg border border-slate-300 bg-slate-50 focus:outline-none focus:border-brand-500">
+                <!-- Injected via JS -->
+              </select>
+              <button onclick="simulasikanTapSelected()" class="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-id-card"></i> Simulasikan Tap Kartu Ini
+              </button>
+            </div>
+
+            <hr class="my-3 border-slate-100">
+
+            <div class="space-y-2">
+              <label class="block text-xs font-semibold text-slate-600">Atau Tap UID Bebas (Tak Terdaftar):</label>
+              <div class="flex gap-2">
+                <input type="text" id="sim-uid-input" placeholder="Misal: 04:a2:8f:12" class="w-full text-xs p-2 rounded-lg border border-slate-300 focus:outline-none focus:border-brand-500">
+                <button onclick="simulasikanTapCustom()" class="px-3 py-2 bg-slate-700 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition">
+                  Tap
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Today Summary Stats -->
+          <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+            <h3 class="font-bold text-slate-800 text-sm mb-3 flex items-center gap-2">
+              <i class="fa-solid fa-chart-pie text-brand-500"></i> Ringkasan Hari Ini
+            </h3>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-100">
+                <p class="text-xs text-emerald-600 font-semibold">Hadir Tepat Waktu</p>
+                <p id="stat-hadir" class="text-2xl font-black text-emerald-700 mt-1">0</p>
+              </div>
+              <div class="bg-amber-50 p-3 rounded-xl border border-amber-100">
+                <p class="text-xs text-amber-600 font-semibold">Terlambat</p>
+                <p id="stat-terlambat" class="text-2xl font-black text-amber-700 mt-1">0</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- TAB 2: DATA SISWA & REGISTRASI KARTU -->
+    <section id="sec-siswa" class="hidden space-y-6">
+
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-slate-800">Manajemen Kartu & Data Siswa</h2>
+          <p class="text-xs text-slate-500">Daftarkan UID Kartu NFC fisik milik siswa ke dalam sistem (tersimpan di Google Sheets)</p>
+        </div>
+        <button onclick="openModalSiswa()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl shadow-sm transition flex items-center gap-2">
+          <i class="fa-solid fa-plus"></i> Tambah Siswa Baru
+        </button>
+      </div>
+
+      <!-- Tabel Data Siswa -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wider">
+              <tr>
+                <th class="px-4 py-3">NISN</th>
+                <th class="px-4 py-3">Nama Siswa</th>
+                <th class="px-4 py-3">Kelas</th>
+                <th class="px-4 py-3">UID Kartu NFC</th>
+                <th class="px-4 py-3 text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="table-siswa-body" class="divide-y divide-slate-100">
+              <tr><td colspan="5" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner spin"></i> Memuat data...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- TAB 3: REKAP PRESENSI -->
+    <section id="sec-laporan" class="hidden space-y-6">
+
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-slate-800">Rekapitulasi Absensi</h2>
+          <p class="text-xs text-slate-500">Data diambil langsung dari sheet bulan &amp; tahun yang dipilih</p>
+        </div>
+        <div class="flex gap-2 items-center flex-wrap">
+          <select id="filter-bulan" onchange="muatRekap()" class="text-xs p-2 rounded-lg border border-slate-300 bg-white"></select>
+          <select id="filter-tahun" onchange="muatRekap()" class="text-xs p-2 rounded-lg border border-slate-300 bg-white"></select>
+          <button onclick="muatRekap()" class="px-3 py-1.5 bg-brand-50 text-brand-700 hover:bg-brand-100 border border-brand-200 text-xs font-semibold rounded-lg transition">
+            <i class="fa-solid fa-rotate"></i> Muat Ulang
+          </button>
+        </div>
+      </div>
+
+      <!-- Tabel Rekap Presensi -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wider">
+              <tr>
+                <th class="px-4 py-3">Waktu & Tanggal</th>
+                <th class="px-4 py-3">NISN</th>
+                <th class="px-4 py-3">Nama Siswa</th>
+                <th class="px-4 py-3">Kelas</th>
+                <th class="px-4 py-3">Status Jam</th>
+              </tr>
+            </thead>
+            <tbody id="table-presensi-body" class="divide-y divide-slate-100">
+              <tr><td colspan="5" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner spin"></i> Memuat data...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- MODAL: TAMBAH/EDIT SISWA -->
+  <div id="modal-siswa" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden animate-fade-in">
+      <div class="bg-brand-700 px-5 py-4 text-white flex justify-between items-center">
+        <h3 id="modal-title" class="font-bold text-base">Formulir Siswa & Kartu NFC</h3>
+        <button onclick="closeModalSiswa()" class="text-brand-100 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="form-siswa" onsubmit="saveSiswa(event)" class="p-5 space-y-4">
+        <input type="hidden" id="siswa-id">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">NISN / Nomor Induk</label>
+          <input type="text" id="siswa-nisn" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-brand-500">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Nama Lengkap Siswa</label>
+          <input type="text" id="siswa-nama" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-brand-500">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Kelas / Rombel</label>
+          <input type="text" id="siswa-kelas" placeholder="Misal: X IPA 1" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-brand-500">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">UID Kartu NFC</label>
+          <div class="flex gap-2">
+            <input type="text" id="siswa-uid" placeholder="Contoh: 04:1a:2b:3c" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:outline-none focus:border-brand-500">
+            <button type="button" onclick="scanModalNFC()" class="px-3 py-2 bg-brand-100 text-brand-700 font-semibold rounded-lg text-xs hover:bg-brand-200 transition flex items-center gap-1 whitespace-nowrap">
+              <i class="fa-solid fa-wifi"></i> Scan Kartu
+            </button>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1">Tempelkan kartu ke HP untuk otomatis mengisi UID ini saat tombol "Scan Kartu" diklik.</p>
+        </div>
+        <div class="pt-2 flex justify-end space-x-2">
+          <button type="button" onclick="closeModalSiswa()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">Batal</button>
+          <button type="submit" id="btn-simpan-siswa" class="px-4 py-2 text-xs font-semibold bg-brand-600 hover:bg-brand-700 text-white rounded-lg shadow-sm">Simpan Data</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // ==========================================================
+    // KONFIGURASI PENTING: isi dengan URL Web App Apps Script kamu
+    // Cara dapat URL: di Apps Script -> Deploy -> New deployment
+    // -> Type: Web app -> Execute as: Me -> Who has access: Anyone
+    // -> Deploy -> salin URL yang berakhiran /exec
+    // ==========================================================
+    const API_URL = 'https://script.google.com/macros/s/AKfycby2awCSa5CVQOaJVUUuPKaJmanS7UVmiLG2zu7L5tkZRRR_ayKjbcb1At06Jde2j30K/exec';
+
+    // --- STATE ---
+    let listSiswa = [];
+    let isNfcActive = false;
+    let ndefReaderInstance = null;
+    let isModalScanActive = false;
+
+    // --- PEMANGGIL API KE APPS SCRIPT ---
+    async function callAPI(action, payload) {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        // pakai text/plain supaya browser TIDAK mengirim preflight OPTIONS
+        // (Apps Script Web App tidak mendukung preflight CORS)
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action, payload: payload || {} })
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || 'Terjadi kesalahan di server');
+      return json.data;
+    }
+
+    // --- INITIALIZATION ---
+    window.onload = async () => {
+      updateClock();
+      setInterval(updateClock, 1000);
+      checkWebNfcSupport();
+      setupFilterRekap();
+
+      if (!API_URL || API_URL === 'https://script.google.com/macros/s/AKfycby2awCSa5CVQOaJVUUuPKaJmanS7UVmiLG2zu7L5tkZRRR_ayKjbcb1At06Jde2j30K/exec') {
+        document.getElementById('api-not-configured').classList.remove('hidden');
+        setConnStatus(false, 'URL Web App belum diatur');
+        return;
+      }
+
+      await muatSemuaData();
+    };
+
+    async function muatSemuaData() {
+      try {
+        setConnStatus(null, 'Menghubungkan ke spreadsheet...');
+        listSiswa = await callAPI('getSiswa');
+        renderSiswaTable();
+        populateSimulatorDropdown();
+        await muatRekap();
+        await muatStatsHariIni();
+        setConnStatus(true, 'Terhubung ke Google Sheets');
+      } catch (err) {
+        setConnStatus(false, 'Gagal terhubung: ' + err.message);
+        console.error(err);
+      }
+    }
+
+    function setConnStatus(ok, text) {
+      const dot = document.getElementById('conn-dot');
+      const label = document.getElementById('conn-text');
+      dot.classList.remove('bg-amber-400', 'bg-emerald-400', 'bg-rose-400');
+      if (ok === true) dot.classList.add('bg-emerald-400');
+      else if (ok === false) dot.classList.add('bg-rose-400');
+      else dot.classList.add('bg-amber-400');
+      label.innerText = text;
+    }
+
+    function checkWebNfcSupport() {
+      if (!('NDEFReader' in window)) {
+        document.getElementById('nfc-support-alert').classList.remove('hidden');
+      }
+    }
+
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('live-time').innerText = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      document.getElementById('live-date').innerText = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    }
+
+    // --- NAVIGATION TABS ---
+    function switchTab(tab) {
+      ['kios', 'siswa', 'laporan'].forEach(t => {
+        document.getElementById(`sec-${t}`).classList.add('hidden');
+        const tabBtn = document.getElementById(`tab-${t}`);
+        tabBtn.classList.remove('bg-brand-900', 'text-white', 'shadow-inner');
+        tabBtn.classList.add('text-brand-100', 'hover:bg-brand-600');
+      });
+
+      document.getElementById(`sec-${tab}`).classList.remove('hidden');
+      const activeBtn = document.getElementById(`tab-${tab}`);
+      activeBtn.classList.add('bg-brand-900', 'text-white', 'shadow-inner');
+      activeBtn.classList.remove('text-brand-100', 'hover:bg-brand-600');
+
+      if (tab === 'laporan') muatRekap();
+    }
+
+    // --- WEB NFC API CORE ---
+    async function initNFCReader() {
+      if (!('NDEFReader' in window)) {
+        showFeedback("error", "Web NFC API tidak didukung di perangkat/browser ini.");
+        return;
+      }
+
+      try {
+        if (!ndefReaderInstance) {
+          ndefReaderInstance = new NDEFReader();
+        }
+
+        await ndefReaderInstance.scan();
+        isNfcActive = true;
+
+        document.getElementById('terminal-status-title').innerText = "Sensor NFC Aktif!";
+        document.getElementById('terminal-status-sub').innerText = "Silakan dekatkan kartu siswa ke bagian belakang HP ini...";
+        document.getElementById('btn-toggle-nfc').classList.replace('bg-brand-600', 'bg-emerald-600');
+        document.getElementById('btn-toggle-nfc').innerHTML = `<i class="fa-solid fa-circle-check"></i> Sensor Aktif`;
+
+        showFeedback("info", "Sensor NFC berhasil diaktifkan. Siap membaca kartu!");
+
+        ndefReaderInstance.onreading = (event) => {
+          const serialNumber = event.serialNumber;
+          if (serialNumber) {
+            handleCardScanned(serialNumber.toLowerCase());
+          }
+        };
+
+        ndefReaderInstance.onreadingerror = () => {
+          showFeedback("error", "Gagal membaca kartu. Pastikan posisi kartu pas.");
+        };
+
+      } catch (error) {
+        showFeedback("error", `Gagal mengaktifkan NFC: ${error.message}`);
+      }
+    }
+
+    // --- ABSENSI LOGIC (DIPROSES DI SERVER / APPS SCRIPT) ---
+    async function handleCardScanned(uid) {
+      // Mode registrasi kartu di form siswa
+      if (isModalScanActive) {
+        document.getElementById('siswa-uid').value = uid;
+        isModalScanActive = false;
+        alert(`Kartu Terdeteksi! UID (${uid}) berhasil dimasukkan ke form.`);
+        return;
+      }
+
+      showFeedback("info", "Memproses tap kartu...");
+
+      try {
+        const hasil = await callAPI('tapKartu', { uid: uid });
+
+        if (hasil.status === 'error') {
+          playAudioFeedback(false);
+          showFeedback("error", `Kartu Tidak Terdaftar! (UID: ${hasil.uid})`);
+          return;
+        }
+
+        if (hasil.status === 'duplikat') {
+          playAudioFeedback(false);
+          showFeedback("warning", hasil.pesan);
+          return;
+        }
+
+        // sukses
+        const isLate = hasil.statusJam === 'Terlambat';
+        playAudioFeedback(true);
+        showFeedback(
+          isLate ? "warning" : "success",
+          `PRESENSI BERHASIL!<br><span class="text-lg font-bold">${hasil.siswa.nama}</span> (${hasil.siswa.kelas})<br>Waktu: ${hasil.waktu} - <b class="${isLate ? 'text-amber-800' : 'text-emerald-800'}">${hasil.statusJam}</b>`
+        );
+
+        // refresh rekap & statistik dari spreadsheet
+        muatStatsHariIni();
+        if (!document.getElementById('sec-laporan').classList.contains('hidden')) {
+          muatRekap();
+        }
+      } catch (err) {
+        playAudioFeedback(false);
+        showFeedback("error", "Gagal menyimpan ke spreadsheet: " + err.message);
+      }
+    }
+
+    // --- UI FEEDBACK HELPERS ---
+    function showFeedback(type, message) {
+      const fb = document.getElementById('scan-feedback');
+      fb.classList.remove('hidden', 'bg-emerald-100', 'text-emerald-800', 'bg-amber-100', 'text-amber-800', 'bg-rose-100', 'text-rose-800', 'bg-blue-100', 'text-blue-800');
+
+      if (type === 'success') fb.classList.add('bg-emerald-100', 'text-emerald-800', 'border', 'border-emerald-300');
+      else if (type === 'warning') fb.classList.add('bg-amber-100', 'text-amber-800', 'border', 'border-amber-300');
+      else if (type === 'error') fb.classList.add('bg-rose-100', 'text-rose-800', 'border', 'border-rose-300');
+      else fb.classList.add('bg-blue-100', 'text-blue-800', 'border', 'border-blue-300');
+
+      fb.innerHTML = message;
+
+      const iconBg = document.getElementById('nfc-icon-bg');
+      iconBg.classList.add('scale-110');
+      setTimeout(() => iconBg.classList.remove('scale-110'), 300);
+
+      setTimeout(() => { fb.classList.add('hidden'); }, 5000);
+    }
+
+    function playAudioFeedback(success) {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        if (success) {
+          osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+          osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1);
+          gain.gain.setValueAtTime(0.1, ctx.currentTime);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.25);
+        } else {
+          osc.frequency.setValueAtTime(220, ctx.currentTime);
+          gain.gain.setValueAtTime(0.1, ctx.currentTime);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.3);
+        }
+      } catch (e) {
+        // Audio fallback
+      }
+    }
+
+    // --- SIMULATOR ---
+    function populateSimulatorDropdown() {
+      const select = document.getElementById('sim-siswa-select');
+      select.innerHTML = listSiswa.map(s => `<option value="${s.uid}">${s.nama} (${s.kelas}) - ${s.uid}</option>`).join('');
+    }
+
+    function simulasikanTapSelected() {
+      const select = document.getElementById('sim-siswa-select');
+      if (select.value) handleCardScanned(select.value);
+      else alert("Belum ada data siswa terdaftar.");
+    }
+
+    function simulasikanTapCustom() {
+      const val = document.getElementById('sim-uid-input').value.trim();
+      if (val) handleCardScanned(val);
+      else alert("Masukkan UID kartu!");
+    }
+
+    // --- SISWA MANAGEMENT (CRUD via API) ---
+    function renderSiswaTable() {
+      const tbody = document.getElementById('table-siswa-body');
+      if (listSiswa.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-slate-400">Belum ada siswa terdaftar. Klik "Tambah Siswa Baru".</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = listSiswa.map(s => `
+        <tr class="hover:bg-slate-50 transition">
+          <td class="px-4 py-3 font-medium text-slate-700">${s.nisn}</td>
+          <td class="px-4 py-3 font-semibold text-slate-800">${s.nama}</td>
+          <td class="px-4 py-3 text-slate-600">${s.kelas}</td>
+          <td class="px-4 py-3"><span class="font-mono text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded border border-slate-200">${s.uid}</span></td>
+          <td class="px-4 py-3 text-right space-x-1">
+            <button onclick="editSiswa('${s.id}')" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"><i class="fa-solid fa-pen"></i></button>
+            <button onclick="deleteSiswa('${s.id}')" class="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg"><i class="fa-solid fa-trash"></i></button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function openModalSiswa(isEdit = false) {
+      if (!isEdit) {
+        document.getElementById('siswa-id').value = '';
+        document.getElementById('form-siswa').reset();
+        document.getElementById('modal-title').innerText = "Tambah Siswa Baru";
+      }
+      document.getElementById('modal-siswa').classList.remove('hidden');
+    }
+
+    function closeModalSiswa() {
+      document.getElementById('modal-siswa').classList.add('hidden');
+      isModalScanActive = false;
+    }
+
+    function scanModalNFC() {
+      isModalScanActive = true;
+      alert("Silakan tempelkan kartu NFC ke HP untuk membaca UID secara otomatis...");
+      if (!isNfcActive) initNFCReader();
+    }
+
+    async function saveSiswa(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btn-simpan-siswa');
+      const id = document.getElementById('siswa-id').value;
+      const nisn = document.getElementById('siswa-nisn').value.trim();
+      const nama = document.getElementById('siswa-nama').value.trim();
+      const kelas = document.getElementById('siswa-kelas').value.trim();
+      const uid = document.getElementById('siswa-uid').value.trim().toLowerCase();
+
+      btn.disabled = true;
+      btn.innerText = 'Menyimpan...';
+
+      try {
+        await callAPI('saveSiswa', { id, nisn, nama, kelas, uid });
+        listSiswa = await callAPI('getSiswa');
+        renderSiswaTable();
+        populateSimulatorDropdown();
+        closeModalSiswa();
+      } catch (err) {
+        alert('Gagal menyimpan ke spreadsheet: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Simpan Data';
+      }
+    }
+
+    function editSiswa(id) {
+      const s = listSiswa.find(item => item.id === id);
+      if (s) {
+        document.getElementById('siswa-id').value = s.id;
+        document.getElementById('siswa-nisn').value = s.nisn;
+        document.getElementById('siswa-nama').value = s.nama;
+        document.getElementById('siswa-kelas').value = s.kelas;
+        document.getElementById('siswa-uid').value = s.uid;
+        document.getElementById('modal-title').innerText = "Edit Data Siswa";
+        openModalSiswa(true);
+      }
+    }
+
+    async function deleteSiswa(id) {
+      if (!confirm("Apakah Anda yakin ingin menghapus data siswa ini?")) return;
+      try {
+        await callAPI('deleteSiswa', { id });
+        listSiswa = await callAPI('getSiswa');
+        renderSiswaTable();
+        populateSimulatorDropdown();
+      } catch (err) {
+        alert('Gagal menghapus di spreadsheet: ' + err.message);
+      }
+    }
+
+    // --- REKAP PRESENSI (LANGSUNG DARI SHEET BULAN+TAHUN TERKAIT) ---
+    function setupFilterRekap() {
+      const bulanNama = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+      const now = new Date();
+
+      const selBulan = document.getElementById('filter-bulan');
+      selBulan.innerHTML = bulanNama.map((nama, i) => `<option value="${i + 1}">${nama}</option>`).join('');
+      selBulan.value = now.getMonth() + 1;
+
+      const selTahun = document.getElementById('filter-tahun');
+      const tahunSekarang = now.getFullYear();
+      let opsiTahun = '';
+      for (let y = tahunSekarang - 2; y <= tahunSekarang + 1; y++) {
+        opsiTahun += `<option value="${y}">${y}</option>`;
+      }
+      selTahun.innerHTML = opsiTahun;
+      selTahun.value = tahunSekarang;
+    }
+
+    async function muatRekap() {
+      const tbody = document.getElementById('table-presensi-body');
+      const bulan = Number(document.getElementById('filter-bulan').value);
+      const tahun = Number(document.getElementById('filter-tahun').value);
+
+      tbody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner spin"></i> Memuat data...</td></tr>`;
+
+      try {
+        const rekap = await callAPI('getRekap', { tahun, bulan });
+
+        if (!rekap || rekap.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-slate-400">Belum ada riwayat presensi di bulan ini.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = rekap.map(p => `
+          <tr class="hover:bg-slate-50 transition">
+            <td class="px-4 py-3 text-slate-700 font-mono text-xs">${p.tanggal} <span class="text-slate-400">|</span> <b>${p.waktu}</b></td>
+            <td class="px-4 py-3 text-slate-600">${p.nisn}</td>
+            <td class="px-4 py-3 font-semibold text-slate-800">${p.nama}</td>
+            <td class="px-4 py-3 text-slate-600">${p.kelas}</td>
+            <td class="px-4 py-3">
+              <span class="text-xs px-2.5 py-1 rounded-full font-semibold ${p.status === 'Tepat Waktu' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">
+                ${p.status}
+              </span>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-rose-500">Gagal memuat data: ${err.message}</td></tr>`;
+      }
+    }
+
+    async function muatStatsHariIni() {
+      try {
+        const stats = await callAPI('getStatsHariIni');
+        document.getElementById('stat-hadir').innerText = stats.tepatWaktu;
+        document.getElementById('stat-terlambat').innerText = stats.terlambat;
+      } catch (err) {
+        console.error('Gagal memuat statistik:', err);
+      }
+    }
+  </script>
+</body>
+</html>
