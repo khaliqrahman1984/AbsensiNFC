@@ -158,8 +158,15 @@
 
               <div>
                 <label class="block text-xs font-semibold text-slate-600 mb-1">Tanggal</label>
-                <input type="date" id="ket-tanggal" onchange="updatePreviewTanggalKet()" class="w-full text-xs p-2 rounded-lg border border-slate-300 focus:outline-none focus:border-brand-500">
-                <p id="ket-tanggal-preview" class="text-[11px] text-slate-400 mt-1"></p>
+                <div class="flex items-center gap-2">
+                  <p id="ket-tanggal-preview" class="text-[11px] text-slate-400 whitespace-nowrap"></p>
+                  <input type="date" id="ket-tanggal" onchange="updatePreviewTanggalKet()" class="text-xs p-2 rounded-lg border border-slate-300 focus:outline-none focus:border-brand-500">
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Keterangan (opsional)</label>
+                <textarea id="ket-keterangan" rows="2" placeholder="Contoh: Demam sejak semalam" class="w-full text-xs p-2 rounded-lg border border-slate-300 focus:outline-none focus:border-brand-500 resize-none"></textarea>
               </div>
 
               <div class="grid grid-cols-3 gap-2">
@@ -222,18 +229,18 @@
 
           <!-- Simulator Card Tap (dilipat/collapsed secara default) -->
           <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
-            <button type="button" onclick="toggleSimulator()" class="w-full flex items-center justify-between">
-              <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
-                <i class="fa-solid fa-flask text-purple-500"></i> Simulator Tap Kartu
-              </h3>
-              <div class="flex items-center gap-2">
-                <span class="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-semibold">Dev Tool</span>
-                <i id="simulator-chevron" class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform"></i>
-              </div>
-            </button>
+            <div class="w-full flex items-center justify-between gap-2">
+              <button type="button" onclick="toggleSimulator()" class="flex items-center gap-2 flex-1 text-left min-w-0">
+                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2 truncate">
+                  <i class="fa-solid fa-flask text-purple-500"></i> Simulator Tap Kartu
+                </h3>
+                <i id="simulator-chevron" class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform ml-auto flex-shrink-0"></i>
+              </button>
+              <input type="date" id="sim-tanggal-input" class="text-xs p-1.5 rounded-lg border border-slate-300 bg-slate-50 focus:outline-none focus:border-brand-500 flex-shrink-0 w-[136px]">
+            </div>
 
             <div id="simulator-content" class="hidden mt-3">
-            <p class="text-xs text-slate-500 mb-3">Gunakan jika Anda mencoba di PC/Laptop tanpa sensor NFC fisik.</p>
+            <p class="text-xs text-slate-500 mb-3">Gunakan jika Anda mencoba di PC/Laptop tanpa sensor NFC fisik. Tanggal simulasi diatur lewat kotak tanggal di judul atas (jam tetap memakai jam saat ini, untuk hitung Tepat Waktu/Terlambat).</p>
 
             <div class="space-y-2">
               <label class="block text-xs font-semibold text-slate-600">Pilih Siswa Terdaftar:</label>
@@ -277,6 +284,20 @@
               <div class="bg-amber-50 p-3 rounded-xl border border-amber-100">
                 <p class="text-xs text-amber-600 font-semibold">Terlambat</p>
                 <p id="stat-terlambat" class="text-2xl font-black text-amber-700 mt-1">0</p>
+              </div>
+            </div>
+            <div class="grid grid-cols-3 gap-3 mt-3">
+              <div class="bg-sky-50 p-3 rounded-xl border border-sky-100">
+                <p class="text-xs text-sky-600 font-semibold">Sakit</p>
+                <p id="stat-sakit" class="text-2xl font-black text-sky-700 mt-1">0</p>
+              </div>
+              <div class="bg-purple-50 p-3 rounded-xl border border-purple-100">
+                <p class="text-xs text-purple-600 font-semibold">Izin</p>
+                <p id="stat-izin" class="text-2xl font-black text-purple-700 mt-1">0</p>
+              </div>
+              <div class="bg-rose-50 p-3 rounded-xl border border-rose-100">
+                <p class="text-xs text-rose-600 font-semibold">Alpha</p>
+                <p id="stat-alpha" class="text-2xl font-black text-rose-700 mt-1">0</p>
               </div>
             </div>
           </div>
@@ -360,15 +381,14 @@
           <table class="w-full text-left text-sm">
             <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wider">
               <tr>
-                <th class="px-4 py-3">Tanggal & Waktu</th>
-                <th class="px-4 py-3">NISN</th>
                 <th class="px-4 py-3">Nama Siswa</th>
                 <th class="px-4 py-3">Kelas</th>
                 <th class="px-4 py-3">Status Jam</th>
+                <th class="px-4 py-3 text-right">Tanggal & Waktu</th>
               </tr>
             </thead>
             <tbody id="table-presensi-body" class="divide-y divide-slate-100">
-              <tr><td colspan="5" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner spin"></i> Memuat data...</td></tr>
+              <tr><td colspan="4" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner spin"></i> Memuat data...</td></tr>
             </tbody>
           </table>
         </div>
@@ -476,7 +496,7 @@
     // -> Type: Web app -> Execute as: Me -> Who has access: Anyone
     // -> Deploy -> salin URL yang berakhiran /exec
     // ==========================================================
-    const API_URL = 'https://script.google.com/macros/s/AKfycbzPIZZu28LcerXNnNPFeHOpKIEZ6mowMxi-QdxxiChpk4vRFK34RsfdCqDjJ7Zp3euy/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbycte-H7l5d2X6TV54jnT5qUij4toqEmzkYxeCdNu7nx_aMr7udAxWLwSlQPVDf8WhK/exec';
 
     // --- STATE ---
     let listSiswa = [];
@@ -769,7 +789,7 @@
     }
 
     // --- ABSENSI LOGIC (DIPROSES DI SERVER / APPS SCRIPT) ---
-    async function handleCardScanned(uid) {
+    async function handleCardScanned(uid, tanggalSimulasi) {
       // Mode registrasi kartu di form siswa
       if (isModalScanActive) {
         document.getElementById('siswa-uid').value = uid;
@@ -781,7 +801,7 @@
       showFeedback("info", "Memproses tap kartu...");
 
       try {
-        const hasil = await callAPI('tapKartu', { uid: uid });
+        const hasil = await callAPI('tapKartu', { uid: uid, tanggalSimulasi: tanggalSimulasi || undefined });
 
         if (hasil.status === 'error') {
           playAudioFeedback(false);
@@ -891,6 +911,11 @@
         inputTanggalKet.value = new Date().toISOString().slice(0, 10); // default hari ini, format YYYY-MM-DD
       }
       updatePreviewTanggalKet();
+
+      const inputTanggalSim = document.getElementById('sim-tanggal-input');
+      if (inputTanggalSim && !inputTanggalSim.value) {
+        inputTanggalSim.value = new Date().toISOString().slice(0, 10); // default hari ini, WAJIB diisi (bukan otomatis kosong)
+      }
     }
 
     async function catatKeteranganSiswa(status) {
@@ -908,9 +933,11 @@
       if (!yakin) return;
 
       try {
-        const hasil = await callAPI('catatKeterangan', { nisn, tanggal, status });
+        const keterangan = document.getElementById('ket-keterangan').value.trim();
+        const hasil = await callAPI('catatKeterangan', { nisn, tanggal, status, keterangan });
         console.log('[catatKeteranganSiswa] sukses:', hasil);
         showToast('success', 'Berhasil Dicatat', `${namaTampil} dicatat "${status}".`);
+        document.getElementById('ket-keterangan').value = '';
 
         muatStatsHariIni();
         if (!document.getElementById('sec-laporan').classList.contains('hidden')) {
@@ -934,13 +961,15 @@
 
     function simulasikanTapSelected() {
       const select = document.getElementById('sim-siswa-select');
-      if (select.value) handleCardScanned(select.value);
+      const tanggalSimulasi = document.getElementById('sim-tanggal-input').value;
+      if (select.value) handleCardScanned(select.value, tanggalSimulasi);
       else showToast('warning', 'Data Kosong', 'Belum ada data siswa terdaftar.');
     }
 
     function simulasikanTapCustom() {
       const val = document.getElementById('sim-uid-input').value.trim();
-      if (val) handleCardScanned(val);
+      const tanggalSimulasi = document.getElementById('sim-tanggal-input').value;
+      if (val) handleCardScanned(val, tanggalSimulasi);
       else showToast('warning', 'UID Kosong', 'Masukkan UID kartu terlebih dahulu.');
     }
 
@@ -1108,7 +1137,7 @@
       const rekapHariIni = dataRekapBulanIni.filter(p => String(p.tanggal).split('/')[0] === tanggalTerpilih);
 
       if (rekapHariIni.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-slate-400">Belum ada riwayat presensi di tanggal ini.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center py-6 text-slate-400">Belum ada riwayat presensi di tanggal ini.</td></tr>`;
         return;
       }
 
@@ -1122,15 +1151,14 @@
 
       tbody.innerHTML = rekapHariIni.map(p => `
         <tr class="hover:bg-slate-50 transition">
-          <td class="px-4 py-3 text-slate-700 font-mono text-xs">${p.tanggal} <span class="text-slate-400">|</span> <b>${p.waktu}</b></td>
-          <td class="px-4 py-3 text-slate-600">${p.nisn}</td>
-          <td class="px-4 py-3 font-semibold text-slate-800">${p.nama}</td>
-          <td class="px-4 py-3 text-slate-600">${p.kelas}</td>
-          <td class="px-4 py-3">
+          <td class="px-4 py-2 font-semibold text-slate-800 whitespace-nowrap">${p.nama}</td>
+          <td class="px-4 py-2 text-slate-600 whitespace-nowrap">${p.kelas}</td>
+          <td class="px-4 py-2 whitespace-nowrap">
             <span class="text-xs px-2.5 py-1 rounded-full font-semibold ${badgeRekapHarian[p.status] || 'bg-slate-100 text-slate-700'}">
               ${p.status}
             </span>
           </td>
+          <td class="px-4 py-2 text-slate-700 font-mono text-xs text-right whitespace-nowrap">${p.tanggal} <span class="text-slate-400">|</span> <b>${p.waktu}</b></td>
         </tr>
       `).join('');
     }
@@ -1193,35 +1221,41 @@
     }
 
     async function muatSemuaRekap() {
-      await muatRekap(); // ambil data & isi dataRekapBulanIni
+      const bulan = Number(document.getElementById('filter-bulan').value);
+      const tahun = Number(document.getElementById('filter-tahun').value);
+      await Promise.all([
+        muatRekap(),                     // ambil data & isi dataRekapBulanIni
+        muatLiburManual(tahun, bulan)    // ambil tanda libur manual dari spreadsheet (tersinkron semua orang)
+      ]);
       renderRekapBulanan(); // hitung matriks bulanan dari data yang SAMA (tidak perlu request server baru)
     }
 
     // --- LIBUR MANUAL (guru klik nomor tanggal di tabel bulanan untuk menandai libur) ---
-    // Disimpan di localStorage per perangkat, per bulan+tahun. Tidak tersinkron ke spreadsheet/perangkat lain.
-    function keyLiburManual_(tahun, bulan) {
-      return `presensi_libur_manual_${tahun}_${String(bulan).padStart(2, '0')}`;
-    }
+    // Disimpan di spreadsheet (sheet "Libur Manual") supaya tersinkron utk SEMUA orang/perangkat.
+    let setLiburManualBulanIni = new Set(); // cache libur manual utk bulan+tahun yang sedang ditampilkan
 
-    function getLiburManual(tahun, bulan) {
+    async function muatLiburManual(tahun, bulan) {
       try {
-        const raw = localStorage.getItem(keyLiburManual_(tahun, bulan));
-        return new Set(raw ? JSON.parse(raw) : []);
-      } catch (e) {
-        return new Set();
+        const list = await callAPI('getLiburManual', { tahun, bulan }) || [];
+        setLiburManualBulanIni = new Set(list.map(Number));
+      } catch (err) {
+        console.error('Gagal memuat libur manual:', err);
+        setLiburManualBulanIni = new Set();
       }
     }
 
-    function toggleLiburManual(tanggal) {
+    async function toggleLiburManual(tanggal) {
       const bulan = Number(document.getElementById('filter-bulan').value);
       const tahun = Number(document.getElementById('filter-tahun').value);
-      const set = getLiburManual(tahun, bulan);
 
-      if (set.has(tanggal)) set.delete(tanggal);
-      else set.add(tanggal);
-
-      localStorage.setItem(keyLiburManual_(tahun, bulan), JSON.stringify([...set]));
-      renderRekapBulanan();
+      try {
+        await callAPI('toggleLiburManual', { tahun, bulan, tanggal });
+        if (setLiburManualBulanIni.has(tanggal)) setLiburManualBulanIni.delete(tanggal);
+        else setLiburManualBulanIni.add(tanggal);
+        renderRekapBulanan();
+      } catch (err) {
+        showToast('error', 'Gagal Menandai Libur', err.message);
+      }
     }
 
     // --- BAGIKAN REKAP BULANAN ---
@@ -1248,6 +1282,8 @@
         else if (p.status === 'Alpha') tambahKe(alphaMap, nisn, tanggalNum);
       });
 
+      let totalHadirTerbanyak = 0, totalSakit = 0, totalIzin = 0, totalAlpha = 0;
+
       let teks = `${judul}\n\n`;
       listSiswa.forEach((s, i) => {
         const nisnKey = String(s.nisn);
@@ -1256,7 +1292,13 @@
         const izin = (izinMap[nisnKey] || new Set()).size;
         const alpha = (alphaMap[nisnKey] || new Set()).size;
         teks += `${i + 1}. ${s.nama} (${s.kelas}) - Hadir:${hadir} Sakit:${sakit} Izin:${izin} Alpha:${alpha}\n`;
+
+        if (hadir > totalHadirTerbanyak) totalHadirTerbanyak = hadir;
+        totalSakit += sakit;
+        totalIzin += izin;
+        totalAlpha += alpha;
       });
+      teks += `\n*Total - Hadir(Terbanyak):${totalHadirTerbanyak} Sakit:${totalSakit} Izin:${totalIzin} Alpha:${totalAlpha}*\n`;
       teks += `\nDibuat dari Sistem Presensi NFC Sekolah`;
 
       if (navigator.share) {
@@ -1285,7 +1327,7 @@
       const bulan = Number(document.getElementById('filter-bulan').value);
       const tahun = Number(document.getElementById('filter-tahun').value);
       const daysInMonth = new Date(tahun, bulan, 0).getDate();
-      const setLiburManual = getLiburManual(tahun, bulan);
+      const setLiburManual = setLiburManualBulanIni;
 
       document.getElementById('judul-rekap-bulanan').innerText = `Rekap Absen Bulan ${BULAN_INDO_JS[bulan - 1]} ${tahun}`;
 
@@ -1371,6 +1413,30 @@
           </tr>
         `;
       }).join('');
+
+      // Baris Total di paling bawah: Terbanyak (nilai Hadir tertinggi) + jumlah Sakit/Izin/Alpha
+      let totalHadirTerbanyak = 0, totalSakit = 0, totalIzin = 0, totalAlpha = 0;
+      listSiswa.forEach(s => {
+        const nisnKey = String(s.nisn);
+        const jmlHadir = (hadirMap[nisnKey] || new Set()).size;
+        if (jmlHadir > totalHadirTerbanyak) totalHadirTerbanyak = jmlHadir;
+        totalSakit += (sakitMap[nisnKey] || new Set()).size;
+        totalIzin += (izinMap[nisnKey] || new Set()).size;
+        totalAlpha += (alphaMap[nisnKey] || new Set()).size;
+      });
+
+      const kolomKosongTotal = `<td class="px-1.5 py-2"></td>`.repeat(daysInMonth);
+      tbody.innerHTML += `
+        <tr class="bg-slate-50 font-bold border-t-2 border-slate-300">
+          <td class="px-3 py-2"></td>
+          <td class="px-3 py-2 text-slate-700 whitespace-nowrap">Total</td>
+          ${kolomKosongTotal}
+          <td class="px-2 py-2 text-center text-emerald-700 bg-emerald-100/70" title="Nilai Hadir tertinggi di antara semua siswa">${totalHadirTerbanyak}</td>
+          <td class="px-2 py-2 text-center text-sky-700 bg-sky-100/70">${totalSakit}</td>
+          <td class="px-2 py-2 text-center text-purple-700 bg-purple-100/70">${totalIzin}</td>
+          <td class="px-2 py-2 text-center text-rose-700 bg-rose-100/70">${totalAlpha}</td>
+        </tr>
+      `;
     }
 
     async function muatStatsHariIni() {
@@ -1378,6 +1444,9 @@
         const stats = await callAPI('getStatsHariIni');
         document.getElementById('stat-hadir').innerText = stats.tepatWaktu;
         document.getElementById('stat-terlambat').innerText = stats.terlambat;
+        document.getElementById('stat-sakit').innerText = stats.sakit || 0;
+        document.getElementById('stat-izin').innerText = stats.izin || 0;
+        document.getElementById('stat-alpha').innerText = stats.alpha || 0;
       } catch (err) {
         console.error('Gagal memuat statistik:', err);
       }
