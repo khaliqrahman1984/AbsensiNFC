@@ -431,6 +431,43 @@
         <p class="px-4 pb-4 pt-2 text-[11px] text-slate-400 flex items-center gap-1"><span class="inline-block w-3 h-3 bg-slate-100 border border-slate-200"></span> Hari Minggu (bukan hari sekolah)</p>
       </div>
 
+      <!-- Card: Rekap Per Semester -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="px-4 pt-4 flex items-center justify-between flex-wrap gap-2">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-calendar-week text-indigo-500"></i>
+            <h3 id="judul-rekap-semester" class="font-bold text-slate-800 text-sm">Rekap Per Semester</h3>
+          </div>
+          <p class="text-[11px] text-slate-400">Mengikuti filter Bulan &amp; Tahun di atas</p>
+        </div>
+        <p class="px-4 text-[11px] text-slate-400 mt-2">Semester Ganjil: Juli–Desember. Semester Genap: Januari–Juni. H = Hadir, S = Sakit, I = Izin, A = Alpha.</p>
+        <div class="overflow-x-auto mt-2">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase tracking-wider">
+              <tr>
+                <th rowspan="2" class="px-3 py-3 align-bottom">No</th>
+                <th rowspan="2" class="px-3 py-3 align-bottom">Nama Murid</th>
+                <th id="th-semester-ganjil" colspan="4" class="px-3 py-2 text-center border-l border-slate-200">Semester Ganjil (Jul–Des)</th>
+                <th id="th-semester-genap" colspan="4" class="px-3 py-2 text-center border-l border-slate-200">Semester Genap (Jan–Jun)</th>
+              </tr>
+              <tr>
+                <th class="px-2 py-2 text-center border-l border-slate-200 bg-emerald-50">H</th>
+                <th class="px-2 py-2 text-center bg-sky-50">S</th>
+                <th class="px-2 py-2 text-center bg-purple-50">I</th>
+                <th class="px-2 py-2 text-center bg-rose-50">A</th>
+                <th class="px-2 py-2 text-center border-l border-slate-200 bg-emerald-50">H</th>
+                <th class="px-2 py-2 text-center bg-sky-50">S</th>
+                <th class="px-2 py-2 text-center bg-purple-50">I</th>
+                <th class="px-2 py-2 text-center bg-rose-50">A</th>
+              </tr>
+            </thead>
+            <tbody id="table-semester-body">
+              <tr><td colspan="10" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner spin"></i> Memuat data...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </section>
 
   </main>
@@ -503,7 +540,7 @@
     // -> Type: Web app -> Execute as: Me -> Who has access: Anyone
     // -> Deploy -> salin URL yang berakhiran /exec
     // ==========================================================
-    const API_URL = 'https://script.google.com/macros/s/AKfycbyzWFE4Fco3NY3mIh5u5bODcB09B_uRr-1WGnSQHmJC_VzlQhNlfsaZBzf1bZUi29s/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbyRQrXmeuBK9g4X-hP1wxu5J096vke0MgWDl18UvhlQv6SsTPJ0Pkq6zYrHTbIiqogw/exec';
 
     // --- STATE ---
     let listSiswa = [];
@@ -1235,6 +1272,7 @@
         muatLiburManual(tahun, bulan)    // ambil tanda libur manual dari spreadsheet (tersinkron semua orang)
       ]);
       renderRekapBulanan(); // hitung matriks bulanan dari data yang SAMA (tidak perlu request server baru)
+      muatRekapSemester(); // muat rekap per semester (independen, bulan sendiri Jan-Des)
     }
 
     // --- LIBUR MANUAL (guru klik nomor tanggal di tabel bulanan untuk menandai libur) ---
@@ -1459,6 +1497,85 @@
           <td class="px-2 py-2 text-center text-rose-700 bg-rose-100/70 blink-total">${totalAlpha}</td>
         </tr>
       `;
+    }
+
+    async function muatRekapSemester() {
+      const tbody = document.getElementById('table-semester-body');
+      const bulanTerpilih = Number(document.getElementById('filter-bulan').value);
+      const tahunTerpilih = Number(document.getElementById('filter-tahun').value);
+      if (!bulanTerpilih || !tahunTerpilih) return;
+
+      // Tahun ajaran mengikuti dropdown Bulan+Tahun paling atas:
+      // Jika bulan terpilih Jan-Jun -> tahun itu adalah Semester GENAP, Ganjil = tahun sebelumnya
+      // Jika bulan terpilih Jul-Des -> tahun itu adalah Semester GANJIL, Genap = tahun berikutnya
+      const isGenap = bulanTerpilih <= 6;
+      const tahunGanjil = isGenap ? tahunTerpilih - 1 : tahunTerpilih;
+      const tahunGenap = isGenap ? tahunTerpilih : tahunTerpilih + 1;
+
+      tbody.innerHTML = `<tr><td colspan="10" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner spin"></i> Memuat data...</td></tr>`;
+
+      try {
+        const bulanGanjil = [7, 8, 9, 10, 11, 12]; // Semester Ganjil: Juli-Desember
+        const bulanGenap = [1, 2, 3, 4, 5, 6];     // Semester Genap: Januari-Juni
+
+        const [dataGanjilPerBulan, dataGenapPerBulan] = await Promise.all([
+          Promise.all(bulanGanjil.map(b => callAPI('getRekap', { tahun: tahunGanjil, bulan: b }))),
+          Promise.all(bulanGenap.map(b => callAPI('getRekap', { tahun: tahunGenap, bulan: b })))
+        ]);
+
+        const rekapGanjil = dataGanjilPerBulan.flat();
+        const rekapGenap = dataGenapPerBulan.flat();
+
+        renderRekapSemester(rekapGanjil, rekapGenap, tahunGanjil, tahunGenap);
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="10" class="text-center py-6 text-rose-500">Gagal memuat data: ${err.message}</td></tr>`;
+      }
+    }
+
+    function hitungHSIASemester_(dataRekap, nisn) {
+      let h = 0, s = 0, i = 0, a = 0;
+      dataRekap.forEach(p => {
+        if (String(p.nisn) !== String(nisn)) return;
+        if (p.status === 'Tepat Waktu' || p.status === 'Terlambat') h++;
+        else if (p.status === 'Sakit') s++;
+        else if (p.status === 'Izin') i++;
+        else if (p.status === 'Alpha') a++;
+      });
+      return { h, s, i, a };
+    }
+
+    function renderRekapSemester(rekapGanjil, rekapGenap, tahunGanjil, tahunGenap) {
+      const tbody = document.getElementById('table-semester-body');
+      const headGanjil = document.getElementById('th-semester-ganjil');
+      const headGenap = document.getElementById('th-semester-genap');
+      const judulSemester = document.getElementById('judul-rekap-semester');
+      if (judulSemester) judulSemester.innerText = `Rekap Per Semester (Tahun Ajaran ${tahunGanjil}-${tahunGenap})`;
+      if (headGanjil) headGanjil.innerText = `Semester Ganjil (Jul-Des ${tahunGanjil})`;
+      if (headGenap) headGenap.innerText = `Semester Genap (Jan-Jun ${tahunGenap})`;
+
+      if (!listSiswa || listSiswa.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="10" class="text-center py-6 text-slate-400">Belum ada data siswa. Tambahkan siswa dulu di tab "Data Siswa".</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = listSiswa.map((s, idx) => {
+        const g = hitungHSIASemester_(rekapGanjil, s.nisn);
+        const p = hitungHSIASemester_(rekapGenap, s.nisn);
+        return `
+          <tr class="hover:bg-slate-50 transition">
+            <td class="px-3 py-2 text-slate-500">${idx + 1}</td>
+            <td class="px-3 py-2 font-semibold text-slate-800 whitespace-nowrap">${s.nama}</td>
+            <td class="px-2 py-2 text-center border-l border-slate-100 text-emerald-700">${g.h}</td>
+            <td class="px-2 py-2 text-center text-sky-700">${g.s}</td>
+            <td class="px-2 py-2 text-center text-purple-700">${g.i}</td>
+            <td class="px-2 py-2 text-center text-rose-700">${g.a}</td>
+            <td class="px-2 py-2 text-center border-l border-slate-100 text-emerald-700">${p.h}</td>
+            <td class="px-2 py-2 text-center text-sky-700">${p.s}</td>
+            <td class="px-2 py-2 text-center text-purple-700">${p.i}</td>
+            <td class="px-2 py-2 text-center text-rose-700">${p.a}</td>
+          </tr>
+        `;
+      }).join('');
     }
 
     async function muatStatsHariIni() {
