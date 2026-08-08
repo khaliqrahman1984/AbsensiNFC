@@ -50,6 +50,13 @@
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
     }
+    @keyframes blink-total {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    .blink-total {
+      animation: blink-total 1.2s ease-in-out infinite;
+    }
   </style>
 </head>
 <body class="bg-slate-100 font-sans min-h-screen flex flex-col text-slate-800">
@@ -158,9 +165,9 @@
 
               <div>
                 <label class="block text-xs font-semibold text-slate-600 mb-1">Tanggal</label>
-                <div class="flex items-center gap-2">
+                <div class="flex items-center justify-between gap-2">
                   <p id="ket-tanggal-preview" class="text-[11px] text-slate-400 whitespace-nowrap"></p>
-                  <input type="date" id="ket-tanggal" onchange="updatePreviewTanggalKet()" class="text-xs p-2 rounded-lg border border-slate-300 focus:outline-none focus:border-brand-500">
+                  <input type="date" id="ket-tanggal" onchange="updatePreviewTanggalKet()" class="text-xs p-2 rounded-lg border border-slate-300 focus:outline-none focus:border-brand-500 flex-shrink-0">
                 </div>
               </div>
 
@@ -346,15 +353,15 @@
     <!-- TAB 3: REKAP PRESENSI -->
     <section id="sec-laporan" class="hidden space-y-6">
 
-      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
           <h2 class="text-xl font-bold text-slate-800">Rekap Absen</h2>
           <p class="text-xs text-slate-500">Data diambil langsung dari sheet bulan &amp; tahun yang dipilih</p>
         </div>
-        <div class="flex gap-2 items-center flex-wrap">
-          <select id="filter-bulan" onchange="muatSemuaRekap()" class="text-xs p-2 rounded-lg border border-slate-300 bg-white"></select>
-          <select id="filter-tahun" onchange="muatSemuaRekap()" class="text-xs p-2 rounded-lg border border-slate-300 bg-white"></select>
-          <button onclick="muatSemuaRekap()" class="px-3 py-1.5 bg-brand-50 text-brand-700 hover:bg-brand-100 border border-brand-200 text-xs font-semibold rounded-lg transition">
+        <div class="w-full sm:w-auto grid grid-cols-2 sm:flex gap-2 items-center">
+          <select id="filter-bulan" onchange="muatSemuaRekap()" class="w-full sm:w-auto text-xs p-2 rounded-lg border border-slate-300 bg-white"></select>
+          <select id="filter-tahun" onchange="muatSemuaRekap()" class="w-full sm:w-auto text-xs p-2 rounded-lg border border-slate-300 bg-white"></select>
+          <button onclick="muatSemuaRekap()" class="col-span-2 sm:col-span-1 w-full sm:w-auto px-3 py-1.5 bg-brand-50 text-brand-700 hover:bg-brand-100 border border-brand-200 text-xs font-semibold rounded-lg transition">
             <i class="fa-solid fa-rotate"></i> Muat Ulang
           </button>
         </div>
@@ -496,7 +503,7 @@
     // -> Type: Web app -> Execute as: Me -> Who has access: Anyone
     // -> Deploy -> salin URL yang berakhiran /exec
     // ==========================================================
-    const API_URL = 'https://script.google.com/macros/s/AKfycbycte-H7l5d2X6TV54jnT5qUij4toqEmzkYxeCdNu7nx_aMr7udAxWLwSlQPVDf8WhK/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbyzWFE4Fco3NY3mIh5u5bODcB09B_uRr-1WGnSQHmJC_VzlQhNlfsaZBzf1bZUi29s/exec';
 
     // --- STATE ---
     let listSiswa = [];
@@ -1266,6 +1273,9 @@
       }
 
       const judul = document.getElementById('judul-rekap-bulanan').innerText;
+      const bulanShare = Number(document.getElementById('filter-bulan').value);
+      const tahunShare = Number(document.getElementById('filter-tahun').value);
+      const daysInMonthShare = new Date(tahunShare, bulanShare, 0).getDate();
 
       // Hitung ulang total H/S/I/A per siswa dari data yang sudah dimuat (dataRekapBulanIni)
       const hadirMap = {}, sakitMap = {}, izinMap = {}, alphaMap = {};
@@ -1282,7 +1292,7 @@
         else if (p.status === 'Alpha') tambahKe(alphaMap, nisn, tanggalNum);
       });
 
-      let totalHadirTerbanyak = 0, totalSakit = 0, totalIzin = 0, totalAlpha = 0;
+      let totalSakit = 0, totalIzin = 0, totalAlpha = 0;
 
       let teks = `${judul}\n\n`;
       listSiswa.forEach((s, i) => {
@@ -1293,12 +1303,19 @@
         const alpha = (alphaMap[nisnKey] || new Set()).size;
         teks += `${i + 1}. ${s.nama} (${s.kelas}) - Hadir:${hadir} Sakit:${sakit} Izin:${izin} Alpha:${alpha}\n`;
 
-        if (hadir > totalHadirTerbanyak) totalHadirTerbanyak = hadir;
         totalSakit += sakit;
         totalIzin += izin;
         totalAlpha += alpha;
       });
-      teks += `\n*Total - Hadir(Terbanyak):${totalHadirTerbanyak} Sakit:${totalSakit} Izin:${totalIzin} Alpha:${totalAlpha}*\n`;
+
+      let totalHariSekolahShare = 0;
+      for (let d = 1; d <= daysInMonthShare; d++) {
+        const hariKe = new Date(tahunShare, bulanShare - 1, d).getDay();
+        const isMinggu = (hariKe === 0);
+        if (!isMinggu && !setLiburManualBulanIni.has(d)) totalHariSekolahShare++;
+      }
+
+      teks += `\n*Total - Hadir(Hari Sekolah):${totalHariSekolahShare} Sakit:${totalSakit} Izin:${totalIzin} Alpha:${totalAlpha}*\n`;
       teks += `\nDibuat dari Sistem Presensi NFC Sekolah`;
 
       if (navigator.share) {
@@ -1414,16 +1431,21 @@
         `;
       }).join('');
 
-      // Baris Total di paling bawah: Terbanyak (nilai Hadir tertinggi) + jumlah Sakit/Izin/Alpha
-      let totalHadirTerbanyak = 0, totalSakit = 0, totalIzin = 0, totalAlpha = 0;
+      // Baris Total di paling bawah: Total Hari Sekolah (jumlah hari sebulan dikurangi Minggu & hari libur) + jumlah Sakit/Izin/Alpha
+      let totalSakit = 0, totalIzin = 0, totalAlpha = 0;
       listSiswa.forEach(s => {
         const nisnKey = String(s.nisn);
-        const jmlHadir = (hadirMap[nisnKey] || new Set()).size;
-        if (jmlHadir > totalHadirTerbanyak) totalHadirTerbanyak = jmlHadir;
         totalSakit += (sakitMap[nisnKey] || new Set()).size;
         totalIzin += (izinMap[nisnKey] || new Set()).size;
         totalAlpha += (alphaMap[nisnKey] || new Set()).size;
       });
+
+      let totalHariSekolah = 0;
+      for (let d = 1; d <= daysInMonth; d++) {
+        const hariKe = new Date(tahun, bulan - 1, d).getDay(); // 0 = Minggu
+        const isMinggu = (hariKe === 0);
+        if (!isMinggu && !setLiburManual.has(d)) totalHariSekolah++;
+      }
 
       const kolomKosongTotal = `<td class="px-1.5 py-2"></td>`.repeat(daysInMonth);
       tbody.innerHTML += `
@@ -1431,10 +1453,10 @@
           <td class="px-3 py-2"></td>
           <td class="px-3 py-2 text-slate-700 whitespace-nowrap">Total</td>
           ${kolomKosongTotal}
-          <td class="px-2 py-2 text-center text-emerald-700 bg-emerald-100/70" title="Nilai Hadir tertinggi di antara semua siswa">${totalHadirTerbanyak}</td>
-          <td class="px-2 py-2 text-center text-sky-700 bg-sky-100/70">${totalSakit}</td>
-          <td class="px-2 py-2 text-center text-purple-700 bg-purple-100/70">${totalIzin}</td>
-          <td class="px-2 py-2 text-center text-rose-700 bg-rose-100/70">${totalAlpha}</td>
+          <td class="px-2 py-2 text-center text-emerald-700 bg-emerald-100/70 blink-total" title="Jumlah hari sekolah dalam bulan ini (dikurangi hari Minggu & hari libur)">${totalHariSekolah}</td>
+          <td class="px-2 py-2 text-center text-sky-700 bg-sky-100/70 blink-total">${totalSakit}</td>
+          <td class="px-2 py-2 text-center text-purple-700 bg-purple-100/70 blink-total">${totalIzin}</td>
+          <td class="px-2 py-2 text-center text-rose-700 bg-rose-100/70 blink-total">${totalAlpha}</td>
         </tr>
       `;
     }
