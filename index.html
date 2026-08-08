@@ -25,6 +25,16 @@
     }
   </script>
   <style>
+    @keyframes toast-in {
+      from { transform: translateX(120%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes toast-out {
+      from { transform: translateX(0); opacity: 1; }
+      to { transform: translateX(120%); opacity: 0; }
+    }
+    .toast-enter { animation: toast-in 0.3s ease-out forwards; }
+    .toast-leave { animation: toast-out 0.25s ease-in forwards; }
     @keyframes pulse-ring {
       0% { transform: scale(0.95); opacity: 0.8; }
       50% { transform: scale(1.1); opacity: 0.4; }
@@ -121,7 +131,7 @@
 
           <!-- Control Button for Web NFC -->
           <div class="mt-4 flex flex-wrap gap-2 justify-center">
-            <button id="btn-toggle-nfc" onclick="initNFCReader()" class="px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm transition shadow-sm flex items-center gap-2">
+            <button id="btn-toggle-nfc" onclick="initNFCReader()" class="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-semibold text-sm transition shadow-sm flex items-center gap-2">
               <i class="fa-solid fa-power-off"></i> Aktifkan Sensor NFC
             </button>
           </div>
@@ -130,14 +140,99 @@
         <!-- Right Side: Simulator & Today Summary -->
         <div class="space-y-6">
 
-          <!-- Simulator Card Tap -->
+          <!-- Catat Sakit / Izin / Alpha -->
           <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
-            <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+              <i class="fa-solid fa-notes-medical text-rose-500"></i> Catat Sakit / Izin / Alpha
+            </h3>
+
+            <div class="mt-3 space-y-3">
+              <p class="text-xs text-slate-500">Untuk siswa yang tidak tap kartu karena Sakit, Izin, atau Alpha (tanpa keterangan).</p>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Pilih Siswa</label>
+                <select id="ket-siswa-select" class="w-full text-xs p-2 rounded-lg border border-slate-300 bg-slate-50 focus:outline-none focus:border-brand-500">
+                  <!-- Injected via JS -->
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Tanggal</label>
+                <input type="date" id="ket-tanggal" onchange="updatePreviewTanggalKet()" class="w-full text-xs p-2 rounded-lg border border-slate-300 focus:outline-none focus:border-brand-500">
+                <p id="ket-tanggal-preview" class="text-[11px] text-slate-400 mt-1"></p>
+              </div>
+
+              <div class="grid grid-cols-3 gap-2">
+                <button onclick="catatKeteranganSiswa('Sakit')" class="py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-semibold transition">
+                  Sakit
+                </button>
+                <button onclick="catatKeteranganSiswa('Izin')" class="py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold transition">
+                  Izin
+                </button>
+                <button onclick="catatKeteranganSiswa('Alpha')" class="py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold transition">
+                  Alpha
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pengaturan Suara Ucapan Terima Kasih -->
+          <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+            <button type="button" onclick="toggleVoiceSettings()" class="w-full flex items-center justify-between">
+              <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                <i class="fa-solid fa-volume-high text-sky-500"></i> Suara Ucapan Terima Kasih
+              </h3>
+              <i id="voice-chevron" class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform"></i>
+            </button>
+
+            <div id="voice-settings-content" class="hidden mt-3 space-y-3">
+              <label class="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                <input type="checkbox" id="voice-enabled" onchange="saveVoiceSettings()">
+                Aktifkan suara saat presensi berhasil
+              </label>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Pilih Suara (dari HP ini)</label>
+                <select id="voice-select" onchange="saveVoiceSettings()" class="w-full text-xs p-2 rounded-lg border border-slate-300 bg-slate-50"></select>
+                <p class="text-[11px] text-slate-400 mt-1">Daftar suara mengikuti HP/browser yang dipakai. Untuk suara Indonesia yang lebih natural, install "Google Text-to-Speech" di HP Android lalu unduh paket suara Indonesia dari Pengaturan HP.</p>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Kalimat Ucapan (Tepat Waktu)</label>
+                <input type="text" id="voice-template" onchange="saveVoiceSettings()" placeholder="Terima kasih, {nama}" class="w-full text-xs p-2 rounded-lg border border-slate-300">
+                <p class="text-[11px] text-slate-400 mt-1">Pakai <code class="bg-slate-100 px-1 rounded">{nama}</code> untuk menyisipkan nama siswa. Contoh: "Terima kasih Pak {nama}"</p>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Kalimat Ucapan (Terlambat)</label>
+                <input type="text" id="voice-template-terlambat" onchange="saveVoiceSettings()" placeholder="{nama}, kamu terlambat ya" class="w-full text-xs p-2 rounded-lg border border-slate-300">
+                <p class="text-[11px] text-slate-400 mt-1">Diucapkan khusus saat siswa tap kartu setelah jam batas terlambat. Contoh: "{nama}, lain kali jangan terlambat lagi ya"</p>
+              </div>
+
+              <div class="flex gap-2">
+                <button type="button" onclick="tesSuara(false)" class="w-full py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2">
+                  <i class="fa-solid fa-play"></i> Tes (Tepat Waktu)
+                </button>
+                <button type="button" onclick="tesSuara(true)" class="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2">
+                  <i class="fa-solid fa-play"></i> Tes (Terlambat)
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Simulator Card Tap (dilipat/collapsed secara default) -->
+          <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+            <button type="button" onclick="toggleSimulator()" class="w-full flex items-center justify-between">
               <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
                 <i class="fa-solid fa-flask text-purple-500"></i> Simulator Tap Kartu
               </h3>
-              <span class="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-semibold">Dev Tool</span>
-            </div>
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-semibold">Dev Tool</span>
+                <i id="simulator-chevron" class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform"></i>
+              </div>
+            </button>
+
+            <div id="simulator-content" class="hidden mt-3">
             <p class="text-xs text-slate-500 mb-3">Gunakan jika Anda mencoba di PC/Laptop tanpa sensor NFC fisik.</p>
 
             <div class="space-y-2">
@@ -160,6 +255,7 @@
                   Tap
                 </button>
               </div>
+            </div>
             </div>
           </div>
 
@@ -226,25 +322,40 @@
 
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 class="text-xl font-bold text-slate-800">Rekapitulasi Absensi</h2>
+          <h2 class="text-xl font-bold text-slate-800">Rekap Absen</h2>
           <p class="text-xs text-slate-500">Data diambil langsung dari sheet bulan &amp; tahun yang dipilih</p>
         </div>
         <div class="flex gap-2 items-center flex-wrap">
-          <select id="filter-bulan" onchange="muatRekap()" class="text-xs p-2 rounded-lg border border-slate-300 bg-white"></select>
-          <select id="filter-tahun" onchange="muatRekap()" class="text-xs p-2 rounded-lg border border-slate-300 bg-white"></select>
-          <button onclick="muatRekap()" class="px-3 py-1.5 bg-brand-50 text-brand-700 hover:bg-brand-100 border border-brand-200 text-xs font-semibold rounded-lg transition">
+          <select id="filter-bulan" onchange="muatSemuaRekap()" class="text-xs p-2 rounded-lg border border-slate-300 bg-white"></select>
+          <select id="filter-tahun" onchange="muatSemuaRekap()" class="text-xs p-2 rounded-lg border border-slate-300 bg-white"></select>
+          <button onclick="muatSemuaRekap()" class="px-3 py-1.5 bg-brand-50 text-brand-700 hover:bg-brand-100 border border-brand-200 text-xs font-semibold rounded-lg transition">
             <i class="fa-solid fa-rotate"></i> Muat Ulang
           </button>
         </div>
       </div>
 
-      <!-- Tabel Rekap Presensi -->
+      <!-- Card: Rekap Absen Harian -->
       <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div class="overflow-x-auto">
+        <div class="px-4 pt-4 flex items-center justify-between flex-wrap gap-2">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-calendar-day text-brand-500"></i>
+            <h3 class="font-bold text-slate-800 text-sm">Rekap Absen Harian</h3>
+          </div>
+          <div class="flex items-center gap-1">
+            <button type="button" onclick="geserTanggalSebelumnya()" title="Tanggal sebelumnya" class="p-2 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 transition">
+              <i class="fa-solid fa-chevron-left text-xs"></i>
+            </button>
+            <select id="filter-tanggal" onchange="renderRekapHarian()" class="text-xs p-2 rounded-lg border border-slate-300 bg-white"></select>
+            <button type="button" onclick="geserTanggalBerikutnya()" title="Tanggal berikutnya" class="p-2 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 transition">
+              <i class="fa-solid fa-chevron-right text-xs"></i>
+            </button>
+          </div>
+        </div>
+        <div class="overflow-x-auto mt-2">
           <table class="w-full text-left text-sm">
             <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wider">
               <tr>
-                <th class="px-4 py-3">Waktu & Tanggal</th>
+                <th class="px-4 py-3">Tanggal & Waktu</th>
                 <th class="px-4 py-3">NISN</th>
                 <th class="px-4 py-3">Nama Siswa</th>
                 <th class="px-4 py-3">Kelas</th>
@@ -256,6 +367,36 @@
             </tbody>
           </table>
         </div>
+      </div>
+
+      <!-- Card: Rekap Absen Bulanan -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="px-4 pt-4">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-calendar-days text-purple-500"></i>
+              <h3 id="judul-rekap-bulanan" class="font-bold text-slate-800 text-sm">Rekap Absen Bulan</h3>
+            </div>
+            <button type="button" onclick="shareRekapBulanan()" class="ml-auto px-3 py-1.5 bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 text-xs font-semibold rounded-lg transition flex items-center gap-1.5">
+              <i class="fa-solid fa-share-nodes"></i> Bagikan
+            </button>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-2">H = Hadir (tap kartu), S = Sakit, I = Izin, A = Alpha — dicatat manual lewat menu "Catat Sakit/Izin/Alpha" di Mode Kios. Kolom kosong = belum ada catatan. ■ = Hari Minggu. Klik nomor tanggal di header tabel untuk menandai/batalkan hari libur lain secara manual.</p>
+        </div>
+        <div class="overflow-x-auto mt-2">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase tracking-wider" id="table-bulanan-head">
+              <tr>
+                <th class="px-3 py-3">No</th>
+                <th class="px-3 py-3">Nama Murid</th>
+              </tr>
+            </thead>
+            <tbody id="table-bulanan-body" class="divide-y divide-slate-100">
+              <tr><td colspan="2" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner spin"></i> Memuat data...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="px-4 pb-4 pt-2 text-[11px] text-slate-400 flex items-center gap-1"><span class="inline-block w-3 h-3 bg-slate-100 border border-slate-200"></span> Hari Minggu (bukan hari sekolah)</p>
       </div>
 
     </section>
@@ -301,6 +442,28 @@
     </div>
   </div>
 
+
+<!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toast-container" class="fixed top-4 right-4 z-[100] space-y-2 w-[calc(100%-2rem)] max-w-sm"></div>
+
+  <!-- CONFIRM DIALOG (modern, ganti window.confirm) -->
+  <div id="confirm-dialog" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] hidden items-center justify-center p-4">
+    <div class="bg-white w-full max-w-sm rounded-2xl shadow-xl overflow-hidden">
+      <div class="p-5">
+        <div class="w-11 h-11 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mb-3">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <h3 id="confirm-dialog-title" class="font-bold text-slate-800 text-base mb-1">Konfirmasi</h3>
+        <p id="confirm-dialog-message" class="text-sm text-slate-500"></p>
+      </div>
+      <div class="px-5 pb-5 flex justify-end gap-2">
+        <button id="confirm-dialog-cancel" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">Batal</button>
+        <button id="confirm-dialog-ok" class="px-4 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-sm">Ya, Hapus</button>
+      </div>
+    </div>
+  </div>
+
+
   <script>
     // ==========================================================
     // KONFIGURASI PENTING: isi dengan URL Web App Apps Script kamu
@@ -308,7 +471,7 @@
     // -> Type: Web app -> Execute as: Me -> Who has access: Anyone
     // -> Deploy -> salin URL yang berakhiran /exec
     // ==========================================================
-    const API_URL = 'https://script.google.com/macros/s/AKfycbwASOJlhN91phNxcmQVP8Y-2jLrwv3pZM30DRN3QvSbumHzUocHDlIC0UfBEKB7vNCr/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbyhfcrljpdKSQtXF6GgVWykWKaKrrxKf3ADRTDrDy7gns59s-Ji-9aOZMu_A-L9MwxA/exec';
 
     // --- STATE ---
     let listSiswa = [];
@@ -318,14 +481,34 @@
 
     // --- PEMANGGIL API KE APPS SCRIPT ---
     async function callAPI(action, payload) {
-      const res = await fetch(API_URL, {
-        method: 'POST',
-        // pakai text/plain supaya browser TIDAK mengirim preflight OPTIONS
-        // (Apps Script Web App tidak mendukung preflight CORS)
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action, payload: payload || {} })
-      });
-      const json = await res.json();
+      let res;
+      try {
+        res = await fetch(API_URL, {
+          method: 'POST',
+          // pakai text/plain supaya browser TIDAK mengirim preflight OPTIONS
+          // (Apps Script Web App tidak mendukung preflight CORS)
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action, payload: payload || {} })
+        });
+      } catch (networkErr) {
+        throw new Error('Tidak bisa menghubungi server (cek koneksi internet / URL salah): ' + networkErr.message);
+      }
+
+      const rawText = await res.text();
+      console.log('[callAPI]', action, '-> status', res.status, '\n', rawText.slice(0, 500));
+
+      let json;
+      try {
+        json = JSON.parse(rawText);
+      } catch (parseErr) {
+        // Respons bukan JSON -> biasanya berarti deployment belum "Anyone",
+        // URL lama (belum di-redeploy), atau doPost() di Apps Script error/tidak ada.
+        if (rawText.includes('accounts.google.com') || rawText.includes('Sign in')) {
+          throw new Error('Server minta login Google. Set deployment "Who has access" ke "Anyone", lalu Deploy > New deployment.');
+        }
+        throw new Error('Server tidak mengembalikan JSON (status ' + res.status + '). Kemungkinan URL lama / belum redeploy. Cek console (F12) untuk detail.');
+      }
+
       if (!json.ok) throw new Error(json.error || 'Terjadi kesalahan di server');
       return json.data;
     }
@@ -336,6 +519,13 @@
       setInterval(updateClock, 1000);
       checkWebNfcSupport();
       setupFilterRekap();
+      loadVoiceSettings();
+
+      // Sebagian browser (terutama Android) memuat daftar suara secara async,
+      // jadi perlu di-refresh ulang saat event 'voiceschanged' terjadi.
+      if (window.speechSynthesis) {
+        window.speechSynthesis.onvoiceschanged = loadVoiceList;
+      }
 
       if (!API_URL || API_URL.indexOf('script.google.com') === -1) {
         document.getElementById('api-not-configured').classList.remove('hidden');
@@ -349,10 +539,10 @@
     async function muatSemuaData() {
       try {
         setConnStatus(null, 'Menghubungkan ke spreadsheet...');
-        listSiswa = await callAPI('getSiswa');
+        listSiswa = await callAPI('getSiswa'); // listSiswa harus terisi DULU sebelum rekap bulanan dihitung
         renderSiswaTable();
         populateSimulatorDropdown();
-        await muatRekap();
+        await muatSemuaRekap();
         await muatStatsHariIni();
         setConnStatus(true, 'Terhubung ke Google Sheets');
       } catch (err) {
@@ -377,6 +567,133 @@
       }
     }
 
+    // --- SUARA UCAPAN TERIMA KASIH (Text-to-Speech) ---
+    let daftarSuara = [];
+
+    function loadVoiceList() {
+      daftarSuara = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+      const select = document.getElementById('voice-select');
+      if (!select) return;
+      const savedURI = localStorage.getItem('presensi_voice_uri') || '';
+      select.innerHTML = daftarSuara.map(v =>
+        `<option value="${v.voiceURI}" ${v.voiceURI === savedURI ? 'selected' : ''}>${v.name} (${v.lang})</option>`
+      ).join('') || '<option value="">Tidak ada suara ditemukan di perangkat ini</option>';
+    }
+
+    function loadVoiceSettings() {
+      const savedEnabled = localStorage.getItem('presensi_voice_enabled');
+      // Default TRUE saat pertama kali dibuka (belum pernah disimpan sama sekali)
+      document.getElementById('voice-enabled').checked = savedEnabled === null ? true : savedEnabled === 'true';
+
+      let savedTemplate = localStorage.getItem('presensi_voice_template');
+      // Migrasi otomatis: kalau masih tersimpan kalimat default versi lama, upgrade ke default baru
+      if (savedTemplate === null || savedTemplate === 'Terima kasih, {nama}') {
+        savedTemplate = 'Terima kasih sudah tepat waktu, {nama}';
+        localStorage.setItem('presensi_voice_template', savedTemplate);
+      }
+      document.getElementById('voice-template').value = savedTemplate;
+
+      document.getElementById('voice-template-terlambat').value = localStorage.getItem('presensi_voice_template_terlambat') || '{nama}, kamu terlambat ya';
+      loadVoiceList();
+    }
+
+    function saveVoiceSettings() {
+      localStorage.setItem('presensi_voice_enabled', document.getElementById('voice-enabled').checked);
+      localStorage.setItem('presensi_voice_uri', document.getElementById('voice-select').value);
+      localStorage.setItem('presensi_voice_template', document.getElementById('voice-template').value || 'Terima kasih, {nama}');
+      localStorage.setItem('presensi_voice_template_terlambat', document.getElementById('voice-template-terlambat').value || '{nama}, kamu terlambat ya');
+    }
+
+    function ucapkanTerimaKasih(nama, terlambat) {
+      if (!window.speechSynthesis) return;
+      if (localStorage.getItem('presensi_voice_enabled') !== 'true') return;
+
+      const key = terlambat ? 'presensi_voice_template_terlambat' : 'presensi_voice_template';
+      const defaultTeks = terlambat ? '{nama}, kamu terlambat ya' : 'Terima kasih sudah tepat waktu, {nama}';
+      const template = localStorage.getItem(key) || defaultTeks;
+      const teks = template.replace('{nama}', nama);
+      const utter = new SpeechSynthesisUtterance(teks);
+
+      const savedURI = localStorage.getItem('presensi_voice_uri');
+      const suara = daftarSuara.find(v => v.voiceURI === savedURI);
+      if (suara) utter.voice = suara;
+      utter.lang = suara ? suara.lang : 'id-ID';
+
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utter);
+    }
+
+    function tesSuara(terlambat) {
+      saveVoiceSettings();
+      ucapkanTerimaKasih('Alek', terlambat);
+    }
+
+    function toggleVoiceSettings() {
+      document.getElementById('voice-settings-content').classList.toggle('hidden');
+      document.getElementById('voice-chevron').classList.toggle('rotate-180');
+    }
+
+// --- TOAST & CONFIRM DIALOG (pengganti alert/confirm bawaan browser) ---
+    function showToast(type, title, message) {
+      const container = document.getElementById('toast-container');
+      const cfg = {
+        success: { icon: 'fa-circle-check', bar: 'bg-emerald-500', ic: 'text-emerald-600', bg: 'bg-emerald-50' },
+        error:   { icon: 'fa-circle-xmark', bar: 'bg-rose-500', ic: 'text-rose-600', bg: 'bg-rose-50' },
+        warning: { icon: 'fa-triangle-exclamation', bar: 'bg-amber-500', ic: 'text-amber-600', bg: 'bg-amber-50' },
+        info:    { icon: 'fa-circle-info', bar: 'bg-sky-500', ic: 'text-sky-600', bg: 'bg-sky-50' },
+      }[type] || {};
+
+      const el = document.createElement('div');
+      el.className = `toast-enter relative overflow-hidden bg-white rounded-xl shadow-lg border border-slate-200 flex items-start gap-3 p-4 pl-4`;
+      el.innerHTML = `
+        <div class="absolute left-0 top-0 bottom-0 w-1 ${cfg.bar}"></div>
+        <div class="w-9 h-9 rounded-full ${cfg.bg} ${cfg.ic} flex items-center justify-center flex-shrink-0">
+          <i class="fa-solid ${cfg.icon}"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="font-bold text-sm text-slate-800">${title}</p>
+          <p class="text-xs text-slate-500 mt-0.5 break-words">${message}</p>
+        </div>
+        <button class="text-slate-300 hover:text-slate-500 flex-shrink-0" onclick="dismissToast(this.closest('div.relative'))">
+          <i class="fa-solid fa-xmark text-xs"></i>
+        </button>
+      `;
+      container.appendChild(el);
+      setTimeout(() => dismissToast(el), 4000);
+    }
+
+    function dismissToast(el) {
+      if (!el || !el.isConnected) return;
+      el.classList.remove('toast-enter');
+      el.classList.add('toast-leave');
+      setTimeout(() => el.remove(), 250);
+    }
+
+    function showConfirmDialog(message, title = 'Konfirmasi') {
+      return new Promise((resolve) => {
+        const dialog = document.getElementById('confirm-dialog');
+        document.getElementById('confirm-dialog-title').innerText = title;
+        document.getElementById('confirm-dialog-message').innerText = message;
+        dialog.classList.remove('hidden');
+        dialog.classList.add('flex');
+
+        const btnOk = document.getElementById('confirm-dialog-ok');
+        const btnCancel = document.getElementById('confirm-dialog-cancel');
+
+        const cleanup = (result) => {
+          dialog.classList.add('hidden');
+          dialog.classList.remove('flex');
+          btnOk.onclick = null;
+          btnCancel.onclick = null;
+          resolve(result);
+        };
+
+        btnOk.onclick = () => cleanup(true);
+        btnCancel.onclick = () => cleanup(false);
+      });
+    }
+
+
     function updateClock() {
       const now = new Date();
       document.getElementById('live-time').innerText = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -397,7 +714,12 @@
       activeBtn.classList.add('bg-brand-900', 'text-white', 'shadow-inner');
       activeBtn.classList.remove('text-brand-100', 'hover:bg-brand-600');
 
-      if (tab === 'laporan') muatRekap();
+      if (tab === 'laporan') muatSemuaRekap();
+    }
+
+    function toggleSimulator() {
+      document.getElementById('simulator-content').classList.toggle('hidden');
+      document.getElementById('simulator-chevron').classList.toggle('rotate-180');
     }
 
     // --- WEB NFC API CORE ---
@@ -417,8 +739,11 @@
 
         document.getElementById('terminal-status-title').innerText = "Sensor NFC Aktif!";
         document.getElementById('terminal-status-sub').innerText = "Silakan dekatkan kartu siswa ke bagian belakang HP ini...";
-        document.getElementById('btn-toggle-nfc').classList.replace('bg-brand-600', 'bg-emerald-600');
-        document.getElementById('btn-toggle-nfc').innerHTML = `<i class="fa-solid fa-circle-check"></i> Sensor Aktif`;
+        const btnNfc = document.getElementById('btn-toggle-nfc');
+        btnNfc.classList.remove('bg-slate-800', 'hover:bg-slate-900');
+        btnNfc.classList.add('bg-emerald-600', 'ring-2', 'ring-emerald-300', 'ring-offset-2', 'cursor-default');
+        btnNfc.disabled = true;
+        btnNfc.innerHTML = `<i class="fa-solid fa-circle-check"></i> Sensor Aktif <span class="w-2 h-2 rounded-full bg-white inline-block animate-pulse ml-1"></span>`;
 
         showFeedback("info", "Sensor NFC berhasil diaktifkan. Siap membaca kartu!");
 
@@ -444,7 +769,7 @@
       if (isModalScanActive) {
         document.getElementById('siswa-uid').value = uid;
         isModalScanActive = false;
-        alert(`Kartu Terdeteksi! UID (${uid}) berhasil dimasukkan ke form.`);
+        showToast('success', 'Kartu Terdeteksi', `UID (${uid}) berhasil dimasukkan ke form.`);
         return;
       }
 
@@ -472,6 +797,7 @@
           isLate ? "warning" : "success",
           `PRESENSI BERHASIL!<br><span class="text-lg font-bold">${hasil.siswa.nama}</span> (${hasil.siswa.kelas})<br>Waktu: ${hasil.waktu} - <b class="${isLate ? 'text-amber-800' : 'text-emerald-800'}">${hasil.statusJam}</b>`
         );
+        ucapkanTerimaKasih(hasil.siswa.nama, isLate);
 
         // refresh rekap & statistik dari spreadsheet
         muatStatsHariIni();
@@ -529,21 +855,78 @@
     }
 
     // --- SIMULATOR ---
+    const BULAN_INDO_JS = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+
+    // Ubah "YYYY-MM-DD" (format bawaan input type=date) jadi "DD/MMMM/YYYY", contoh: "07/Agustus/2026"
+    function formatTanggalIndoDisplay(isoDateStr) {
+      if (!isoDateStr) return '';
+      const [y, m, d] = isoDateStr.split('-').map(Number);
+      if (!y || !m || !d) return '';
+      return String(d).padStart(2, '0') + '/' + BULAN_INDO_JS[m - 1] + '/' + y;
+    }
+
+    function updatePreviewTanggalKet() {
+      const inputTanggalKet = document.getElementById('ket-tanggal');
+      const preview = document.getElementById('ket-tanggal-preview');
+      if (inputTanggalKet && preview) {
+        preview.innerText = formatTanggalIndoDisplay(inputTanggalKet.value);
+      }
+    }
+
     function populateSimulatorDropdown() {
       const select = document.getElementById('sim-siswa-select');
       select.innerHTML = listSiswa.map(s => `<option value="${s.uid}">${s.nama} (${s.kelas}) - ${s.uid}</option>`).join('');
+
+      const selectKet = document.getElementById('ket-siswa-select');
+      if (selectKet) {
+        selectKet.innerHTML = listSiswa.map(s => `<option value="${s.nisn}">${s.nama} (${s.kelas})</option>`).join('');
+      }
+      const inputTanggalKet = document.getElementById('ket-tanggal');
+      if (inputTanggalKet && !inputTanggalKet.value) {
+        inputTanggalKet.value = new Date().toISOString().slice(0, 10); // default hari ini, format YYYY-MM-DD
+      }
+      updatePreviewTanggalKet();
+    }
+
+    async function catatKeteranganSiswa(status) {
+      const nisn = document.getElementById('ket-siswa-select').value;
+      const tanggal = document.getElementById('ket-tanggal').value;
+
+      if (!nisn) { showToast('warning', 'Pilih Siswa', 'Silakan pilih nama siswa terlebih dahulu.'); return; }
+      if (!tanggal) { showToast('warning', 'Pilih Tanggal', 'Silakan pilih tanggal terlebih dahulu.'); return; }
+
+      const siswaTerpilih = listSiswa.find(s => String(s.nisn) === String(nisn));
+      const namaTampil = siswaTerpilih ? siswaTerpilih.nama : 'Siswa ini';
+      const tanggalTampil = formatTanggalIndoDisplay(tanggal);
+
+      const yakin = await showConfirmDialog(`Catat ${namaTampil} sebagai "${status}" pada tanggal ${tanggalTampil}?`, 'Konfirmasi Catatan Kehadiran');
+      if (!yakin) return;
+
+      try {
+        const hasil = await callAPI('catatKeterangan', { nisn, tanggal, status });
+        console.log('[catatKeteranganSiswa] sukses:', hasil);
+        showToast('success', 'Berhasil Dicatat', `${namaTampil} dicatat "${status}".`);
+
+        muatStatsHariIni();
+        if (!document.getElementById('sec-laporan').classList.contains('hidden')) {
+          muatSemuaRekap();
+        }
+      } catch (err) {
+        console.error('[catatKeteranganSiswa] GAGAL:', err);
+        showToast('error', 'Gagal Mencatat', err.message);
+      }
     }
 
     function simulasikanTapSelected() {
       const select = document.getElementById('sim-siswa-select');
       if (select.value) handleCardScanned(select.value);
-      else alert("Belum ada data siswa terdaftar.");
+      else showToast('warning', 'Data Kosong', 'Belum ada data siswa terdaftar.');
     }
 
     function simulasikanTapCustom() {
       const val = document.getElementById('sim-uid-input').value.trim();
       if (val) handleCardScanned(val);
-      else alert("Masukkan UID kartu!");
+      else showToast('warning', 'UID Kosong', 'Masukkan UID kartu terlebih dahulu.');
     }
 
     // --- SISWA MANAGEMENT (CRUD via API) ---
@@ -584,7 +967,7 @@
 
     function scanModalNFC() {
       isModalScanActive = true;
-      alert("Silakan tempelkan kartu NFC ke HP untuk membaca UID secara otomatis...");
+      showToast('info', 'Menunggu Kartu', 'Silakan tempelkan kartu NFC ke bagian belakang HP...');
       if (!isNfcActive) initNFCReader();
     }
 
@@ -607,7 +990,7 @@
         populateSimulatorDropdown();
         closeModalSiswa();
       } catch (err) {
-        alert('Gagal menyimpan ke spreadsheet: ' + err.message);
+        showToast('error', 'Gagal Menyimpan', err.message);
       } finally {
         btn.disabled = false;
         btn.innerText = 'Simpan Data';
@@ -628,14 +1011,16 @@
     }
 
     async function deleteSiswa(id) {
-      if (!confirm("Apakah Anda yakin ingin menghapus data siswa ini?")) return;
+      const yakin = await showConfirmDialog('Data siswa ini akan dihapus permanen dari spreadsheet.', 'Hapus Data Siswa?');
+      if (!yakin) return;
       try {
         await callAPI('deleteSiswa', { id });
         listSiswa = await callAPI('getSiswa');
         renderSiswaTable();
         populateSimulatorDropdown();
+        showToast('success', 'Berhasil Dihapus', 'Data siswa sudah dihapus dari spreadsheet.');
       } catch (err) {
-        alert('Gagal menghapus di spreadsheet: ' + err.message);
+        showToast('error', 'Gagal Menghapus', err.message);
       }
     }
 
@@ -658,37 +1043,319 @@
       selTahun.value = tahunSekarang;
     }
 
+    let dataRekapBulanIni = []; // cache hasil getRekap sebulan penuh, difilter per tanggal di client
+
+    function populateFilterTanggal() {
+      const bulan = Number(document.getElementById('filter-bulan').value);
+      const tahun = Number(document.getElementById('filter-tahun').value);
+      const daysInMonth = new Date(tahun, bulan, 0).getDate();
+
+      const now = new Date();
+      const isBulanIni = (now.getFullYear() === tahun) && (now.getMonth() + 1 === bulan);
+      const defaultTanggal = isBulanIni ? now.getDate() : 1;
+
+      const sel = document.getElementById('filter-tanggal');
+      const prevValue = Number(sel.value) || defaultTanggal;
+      const valueDipakai = prevValue <= daysInMonth ? prevValue : defaultTanggal;
+
+      let opsi = '';
+      // value pakai string 2-digit (mis. "07") biar cocok PERSIS dengan format tanggal dari server ("07/Agustus/2026")
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dPad = String(d).padStart(2, '0');
+        opsi += `<option value="${dPad}">Tanggal ${d}</option>`;
+      }
+      sel.innerHTML = opsi;
+      sel.value = String(valueDipakai).padStart(2, '0');
+    }
+
     async function muatRekap() {
       const tbody = document.getElementById('table-presensi-body');
       const bulan = Number(document.getElementById('filter-bulan').value);
       const tahun = Number(document.getElementById('filter-tahun').value);
 
+      populateFilterTanggal();
       tbody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner spin"></i> Memuat data...</td></tr>`;
 
       try {
-        const rekap = await callAPI('getRekap', { tahun, bulan });
-
-        if (!rekap || rekap.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-slate-400">Belum ada riwayat presensi di bulan ini.</td></tr>`;
-          return;
-        }
-
-        tbody.innerHTML = rekap.map(p => `
-          <tr class="hover:bg-slate-50 transition">
-            <td class="px-4 py-3 text-slate-700 font-mono text-xs">${p.tanggal} <span class="text-slate-400">|</span> <b>${p.waktu}</b></td>
-            <td class="px-4 py-3 text-slate-600">${p.nisn}</td>
-            <td class="px-4 py-3 font-semibold text-slate-800">${p.nama}</td>
-            <td class="px-4 py-3 text-slate-600">${p.kelas}</td>
-            <td class="px-4 py-3">
-              <span class="text-xs px-2.5 py-1 rounded-full font-semibold ${p.status === 'Tepat Waktu' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">
-                ${p.status}
-              </span>
-            </td>
-          </tr>
-        `).join('');
+        dataRekapBulanIni = await callAPI('getRekap', { tahun, bulan }) || [];
+        console.log('[muatRekap] total baris bulan ini:', dataRekapBulanIni.length, dataRekapBulanIni);
+        renderRekapHarian();
       } catch (err) {
         tbody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-rose-500">Gagal memuat data: ${err.message}</td></tr>`;
       }
+    }
+
+    function renderRekapHarian() {
+      const tbody = document.getElementById('table-presensi-body');
+      const tanggalTerpilih = document.getElementById('filter-tanggal').value; // string 2-digit, mis. "07"
+
+      // p.tanggal formatnya "07/Agustus/2026" -> ambil 2 digit tanggal di depan, bandingkan sebagai STRING
+      const rekapHariIni = dataRekapBulanIni.filter(p => String(p.tanggal).split('/')[0] === tanggalTerpilih);
+
+      if (rekapHariIni.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-slate-400">Belum ada riwayat presensi di tanggal ini.</td></tr>`;
+        return;
+      }
+
+      const badgeRekapHarian = {
+        'Tepat Waktu': 'bg-emerald-100 text-emerald-700',
+        'Terlambat': 'bg-amber-100 text-amber-700',
+        'Sakit': 'bg-sky-100 text-sky-700',
+        'Izin': 'bg-purple-100 text-purple-700',
+        'Alpha': 'bg-rose-100 text-rose-700'
+      };
+
+      tbody.innerHTML = rekapHariIni.map(p => `
+        <tr class="hover:bg-slate-50 transition">
+          <td class="px-4 py-3 text-slate-700 font-mono text-xs">${p.tanggal} <span class="text-slate-400">|</span> <b>${p.waktu}</b></td>
+          <td class="px-4 py-3 text-slate-600">${p.nisn}</td>
+          <td class="px-4 py-3 font-semibold text-slate-800">${p.nama}</td>
+          <td class="px-4 py-3 text-slate-600">${p.kelas}</td>
+          <td class="px-4 py-3">
+            <span class="text-xs px-2.5 py-1 rounded-full font-semibold ${badgeRekapHarian[p.status] || 'bg-slate-100 text-slate-700'}">
+              ${p.status}
+            </span>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function geserTanggalSebelumnya() {
+      const selTanggal = document.getElementById('filter-tanggal');
+      const selBulan = document.getElementById('filter-bulan');
+      const selTahun = document.getElementById('filter-tahun');
+
+      const tanggal = Number(selTanggal.value);
+      const bulan = Number(selBulan.value);
+      const tahun = Number(selTahun.value);
+
+      // Pakai objek Date supaya perpindahan bulan/tahun (mis. tgl 1 -> mundur ke bulan lalu) otomatis benar
+      const tglBaru = new Date(tahun, bulan - 1, tanggal);
+      tglBaru.setDate(tglBaru.getDate() - 1);
+
+      const tahunBaru = tglBaru.getFullYear();
+      const bulanBaru = tglBaru.getMonth() + 1;
+      const tanggalBaru = tglBaru.getDate();
+
+      const pindahBulan = (bulanBaru !== bulan) || (tahunBaru !== tahun);
+
+      if (pindahBulan) {
+        selBulan.value = bulanBaru;
+        selTahun.value = tahunBaru;
+        await muatSemuaRekap(); // ambil ulang data bulan baru (ini juga membuat ulang opsi tanggal)
+      }
+
+      selTanggal.value = String(tanggalBaru).padStart(2, '0');
+      renderRekapHarian();
+    }
+
+    async function geserTanggalBerikutnya() {
+      const selTanggal = document.getElementById('filter-tanggal');
+      const selBulan = document.getElementById('filter-bulan');
+      const selTahun = document.getElementById('filter-tahun');
+
+      const tanggal = Number(selTanggal.value);
+      const bulan = Number(selBulan.value);
+      const tahun = Number(selTahun.value);
+
+      const tglBaru = new Date(tahun, bulan - 1, tanggal);
+      tglBaru.setDate(tglBaru.getDate() + 1);
+
+      const tahunBaru = tglBaru.getFullYear();
+      const bulanBaru = tglBaru.getMonth() + 1;
+      const tanggalBaru = tglBaru.getDate();
+
+      const pindahBulan = (bulanBaru !== bulan) || (tahunBaru !== tahun);
+
+      if (pindahBulan) {
+        selBulan.value = bulanBaru;
+        selTahun.value = tahunBaru;
+        await muatSemuaRekap(); // ambil ulang data bulan baru (ini juga membuat ulang opsi tanggal)
+      }
+
+      selTanggal.value = String(tanggalBaru).padStart(2, '0');
+      renderRekapHarian();
+    }
+
+    async function muatSemuaRekap() {
+      await muatRekap(); // ambil data & isi dataRekapBulanIni
+      renderRekapBulanan(); // hitung matriks bulanan dari data yang SAMA (tidak perlu request server baru)
+    }
+
+    // --- LIBUR MANUAL (guru klik nomor tanggal di tabel bulanan untuk menandai libur) ---
+    // Disimpan di localStorage per perangkat, per bulan+tahun. Tidak tersinkron ke spreadsheet/perangkat lain.
+    function keyLiburManual_(tahun, bulan) {
+      return `presensi_libur_manual_${tahun}_${String(bulan).padStart(2, '0')}`;
+    }
+
+    function getLiburManual(tahun, bulan) {
+      try {
+        const raw = localStorage.getItem(keyLiburManual_(tahun, bulan));
+        return new Set(raw ? JSON.parse(raw) : []);
+      } catch (e) {
+        return new Set();
+      }
+    }
+
+    function toggleLiburManual(tanggal) {
+      const bulan = Number(document.getElementById('filter-bulan').value);
+      const tahun = Number(document.getElementById('filter-tahun').value);
+      const set = getLiburManual(tahun, bulan);
+
+      if (set.has(tanggal)) set.delete(tanggal);
+      else set.add(tanggal);
+
+      localStorage.setItem(keyLiburManual_(tahun, bulan), JSON.stringify([...set]));
+      renderRekapBulanan();
+    }
+
+    // --- BAGIKAN REKAP BULANAN ---
+    async function shareRekapBulanan() {
+      if (!listSiswa || listSiswa.length === 0) {
+        showToast('warning', 'Data Kosong', 'Belum ada data siswa untuk dibagikan.');
+        return;
+      }
+
+      const judul = document.getElementById('judul-rekap-bulanan').innerText;
+
+      // Hitung ulang total H/S/I/A per siswa dari data yang sudah dimuat (dataRekapBulanIni)
+      const hadirMap = {}, sakitMap = {}, izinMap = {}, alphaMap = {};
+      const tambahKe = (map, nisn, tanggalNum) => {
+        if (!map[nisn]) map[nisn] = new Set();
+        if (tanggalNum) map[nisn].add(tanggalNum);
+      };
+      dataRekapBulanIni.forEach(p => {
+        const tanggalNum = parseInt(String(p.tanggal).split('/')[0], 10);
+        const nisn = String(p.nisn);
+        if (p.status === 'Tepat Waktu' || p.status === 'Terlambat') tambahKe(hadirMap, nisn, tanggalNum);
+        else if (p.status === 'Sakit') tambahKe(sakitMap, nisn, tanggalNum);
+        else if (p.status === 'Izin') tambahKe(izinMap, nisn, tanggalNum);
+        else if (p.status === 'Alpha') tambahKe(alphaMap, nisn, tanggalNum);
+      });
+
+      let teks = `${judul}\n\n`;
+      listSiswa.forEach((s, i) => {
+        const nisnKey = String(s.nisn);
+        const hadir = (hadirMap[nisnKey] || new Set()).size;
+        const sakit = (sakitMap[nisnKey] || new Set()).size;
+        const izin = (izinMap[nisnKey] || new Set()).size;
+        const alpha = (alphaMap[nisnKey] || new Set()).size;
+        teks += `${i + 1}. ${s.nama} (${s.kelas}) - Hadir:${hadir} Sakit:${sakit} Izin:${izin} Alpha:${alpha}\n`;
+      });
+      teks += `\nDibuat dari Sistem Presensi NFC Sekolah`;
+
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: judul, text: teks });
+        } catch (err) {
+          if (err.name !== 'AbortError') {
+            showToast('error', 'Gagal Membagikan', err.message);
+          }
+        }
+      } else if (navigator.clipboard) {
+        try {
+          await navigator.clipboard.writeText(teks);
+          showToast('success', 'Disalin', 'Rekap sudah disalin. Silakan tempel (paste) ke aplikasi tujuan (WhatsApp, dll).');
+        } catch (err) {
+          showToast('error', 'Gagal Menyalin', err.message);
+        }
+      } else {
+        showToast('warning', 'Tidak Didukung', 'Browser ini tidak mendukung fitur bagikan/salin otomatis.');
+      }
+    }
+
+    function renderRekapBulanan() {
+      const thead = document.getElementById('table-bulanan-head');
+      const tbody = document.getElementById('table-bulanan-body');
+      const bulan = Number(document.getElementById('filter-bulan').value);
+      const tahun = Number(document.getElementById('filter-tahun').value);
+      const daysInMonth = new Date(tahun, bulan, 0).getDate();
+      const setLiburManual = getLiburManual(tahun, bulan);
+
+      document.getElementById('judul-rekap-bulanan').innerText = `Rekap Absen Bulan ${BULAN_INDO_JS[bulan - 1]} ${tahun}`;
+
+      console.log('[renderRekapBulanan] listSiswa:', listSiswa.length, '| dataRekapBulanIni:', dataRekapBulanIni.length, dataRekapBulanIni);
+
+      // Header: No, Nama, tanggal 1..akhir bulan (bisa diklik untuk tandai libur manual), lalu total H/S/I/A
+      let headHtml = `<tr><th class="px-3 py-3">No</th><th class="px-3 py-3">Nama Murid</th>`;
+      for (let d = 1; d <= daysInMonth; d++) {
+        const hariKe = new Date(tahun, bulan - 1, d).getDay();
+        const isMinggu = (hariKe === 0);
+        const isLiburManual = setLiburManual.has(d);
+
+        if (isMinggu) {
+          headHtml += `<th class="px-1.5 py-3 text-center text-slate-400" title="Hari Minggu (otomatis libur)">${d}</th>`;
+        } else if (isLiburManual) {
+          headHtml += `<th class="px-1.5 py-3 text-center bg-rose-600 text-white rounded cursor-pointer select-none" title="Klik untuk batalkan tanda libur" onclick="toggleLiburManual(${d})">${d}</th>`;
+        } else {
+          headHtml += `<th class="px-1.5 py-3 text-center cursor-pointer select-none hover:bg-brand-100 rounded transition" title="Klik untuk tandai sebagai hari libur" onclick="toggleLiburManual(${d})">${d}</th>`;
+        }
+      }
+      headHtml += `<th class="px-2 py-3 text-center bg-emerald-50">Hadir</th><th class="px-2 py-3 text-center bg-sky-50">S</th><th class="px-2 py-3 text-center bg-purple-50">I</th><th class="px-2 py-3 text-center bg-rose-50">A</th></tr>`;
+      thead.innerHTML = headHtml;
+
+      if (!listSiswa || listSiswa.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${daysInMonth + 6}" class="text-center py-6 text-slate-400">Belum ada data siswa. Tambahkan siswa dulu di tab "Data Siswa".</td></tr>`;
+        return;
+      }
+
+      // Pemetaan nisn -> Set(tanggal) untuk masing-masing jenis status, dari data yang SAMA dengan Rekap Harian
+      const hadirMap = {}, sakitMap = {}, izinMap = {}, alphaMap = {};
+      const tambahKe = (map, nisn, tanggalNum) => {
+        if (!map[nisn]) map[nisn] = new Set();
+        if (tanggalNum) map[nisn].add(tanggalNum);
+      };
+
+      dataRekapBulanIni.forEach(p => {
+        const tanggalNum = parseInt(String(p.tanggal).split('/')[0], 10); // "07/Agustus/2026" -> 7
+        const nisn = String(p.nisn);
+        if (p.status === 'Tepat Waktu' || p.status === 'Terlambat') tambahKe(hadirMap, nisn, tanggalNum);
+        else if (p.status === 'Sakit') tambahKe(sakitMap, nisn, tanggalNum);
+        else if (p.status === 'Izin') tambahKe(izinMap, nisn, tanggalNum);
+        else if (p.status === 'Alpha') tambahKe(alphaMap, nisn, tanggalNum);
+      });
+
+      tbody.innerHTML = listSiswa.map((s, i) => {
+        const nisnKey = String(s.nisn);
+        const setHadir = hadirMap[nisnKey] || new Set();
+        const setSakit = sakitMap[nisnKey] || new Set();
+        const setIzin = izinMap[nisnKey] || new Set();
+        const setAlpha = alphaMap[nisnKey] || new Set();
+        let kolomHarian = '';
+
+        for (let d = 1; d <= daysInMonth; d++) {
+          const hariKe = new Date(tahun, bulan - 1, d).getDay(); // 0 = Minggu
+          const isMinggu = (hariKe === 0);
+          const isLiburManual = setLiburManual.has(d);
+
+          if (isMinggu || isLiburManual) {
+            kolomHarian += `<td class="px-1.5 py-2 text-center bg-slate-100 text-slate-400">■</td>`;
+          } else if (setHadir.has(d)) {
+            kolomHarian += `<td class="px-1.5 py-2 text-center font-bold text-emerald-600">H</td>`;
+          } else if (setSakit.has(d)) {
+            kolomHarian += `<td class="px-1.5 py-2 text-center font-bold text-sky-600">S</td>`;
+          } else if (setIzin.has(d)) {
+            kolomHarian += `<td class="px-1.5 py-2 text-center font-bold text-purple-600">I</td>`;
+          } else if (setAlpha.has(d)) {
+            kolomHarian += `<td class="px-1.5 py-2 text-center font-bold text-rose-600">A</td>`;
+          } else {
+            // belum ada catatan sama sekali -> dikosongkan (bukan otomatis Alpha)
+            kolomHarian += `<td class="px-1.5 py-2 text-center text-slate-300"></td>`;
+          }
+        }
+
+        return `
+          <tr class="hover:bg-slate-50 transition">
+            <td class="px-3 py-2 text-slate-500">${i + 1}</td>
+            <td class="px-3 py-2 font-semibold text-slate-800 whitespace-nowrap">${s.nama}</td>
+            ${kolomHarian}
+            <td class="px-2 py-2 text-center font-bold text-emerald-700 bg-emerald-50/50">${setHadir.size}</td>
+            <td class="px-2 py-2 text-center font-bold text-sky-700 bg-sky-50/50">${setSakit.size}</td>
+            <td class="px-2 py-2 text-center font-bold text-purple-700 bg-purple-50/50">${setIzin.size}</td>
+            <td class="px-2 py-2 text-center font-bold text-rose-700 bg-rose-50/50">${setAlpha.size}</td>
+          </tr>
+        `;
+      }).join('');
     }
 
     async function muatStatsHariIni() {
