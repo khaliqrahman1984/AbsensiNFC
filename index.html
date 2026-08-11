@@ -391,11 +391,12 @@
                 <th class="px-4 py-3">Nama Siswa</th>
                 <th class="px-4 py-3">Kelas</th>
                 <th class="px-4 py-3">Status Jam</th>
+                <th class="px-4 py-3">Keterangan</th>
                 <th class="px-4 py-3 text-right">Tanggal & Waktu</th>
               </tr>
             </thead>
             <tbody id="table-presensi-body" class="divide-y divide-slate-100">
-              <tr><td colspan="4" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner spin"></i> Memuat data...</td></tr>
+              <tr><td colspan="5" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner spin"></i> Memuat data...</td></tr>
             </tbody>
           </table>
         </div>
@@ -430,6 +431,7 @@
         </div>
         <p class="px-4 pb-4 pt-2 text-[11px] text-slate-400 flex items-center gap-3 flex-wrap">
           <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 bg-slate-100 border border-slate-200"></span> Hari Minggu (bukan hari sekolah)</span>
+          <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 bg-sky-600"></span> Hari ini</span>
           <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 bg-amber-100 border-2 border-amber-400"></span> Tercatat di hari Minggu/libur (dipaksa)</span>
         </p>
       </div>
@@ -543,7 +545,7 @@
     // -> Type: Web app -> Execute as: Me -> Who has access: Anyone
     // -> Deploy -> salin URL yang berakhiran /exec
     // ==========================================================
-    const API_URL = 'https://script.google.com/macros/s/AKfycbwBALuIdFsGiRUJQQxUv1pyij3KZEQ3UhWFFrYjhkaUtHCpmJgwxwzUogF-K6p_f2qY/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbwOw-zWrzEErVlmdezB63b_OgHuyG-5o9cGTi7YtOlDub1Ow5cewVshj83IPmCURd23/exec';
 
     // --- STATE ---
     let listSiswa = [];
@@ -613,7 +615,7 @@
         setConnStatus(null, 'Menghubungkan ke spreadsheet...');
         listSiswa = await callAPI('getSiswa'); // listSiswa harus terisi DULU sebelum rekap bulanan dihitung
         renderSiswaTable();
-        populateSimulatorDropdown();
+        populateSimulatorDropdown(true); // true = pemuatan awal halaman, paksa tanggal ke hari ini
         await muatSemuaRekap();
         await muatStatsHariIni();
         setConnStatus(true, 'Terhubung ke Google Sheets');
@@ -985,7 +987,7 @@
       }
     }
 
-    function populateSimulatorDropdown() {
+    function populateSimulatorDropdown(isPemuatanAwal = false) {
       const select = document.getElementById('sim-siswa-select');
       select.innerHTML = listSiswa.map(s => `<option value="${s.uid}">${s.nama} (${s.kelas}) - ${s.uid}</option>`).join('');
 
@@ -993,16 +995,24 @@
       if (selectKet) {
         selectKet.innerHTML = listSiswa.map(s => `<option value="${s.nisn}">${s.nama} (${s.kelas})</option>`).join('');
       }
-      const inputTanggalKet = document.getElementById('ket-tanggal');
-      if (inputTanggalKet && !inputTanggalKet.value) {
-        inputTanggalKet.value = tanggalHariIniLokal(); // default hari ini (waktu lokal perangkat)
-      }
-      updatePreviewTanggalKet();
 
+      const inputTanggalKet = document.getElementById('ket-tanggal');
       const inputTanggalSim = document.getElementById('sim-tanggal-input');
-      if (inputTanggalSim && !inputTanggalSim.value) {
-        inputTanggalSim.value = tanggalHariIniLokal(); // default hari ini, WAJIB diisi (bukan otomatis kosong)
+
+      if (isPemuatanAwal) {
+        // Paksa ke tanggal hari ini HANYA saat halaman pertama kali dimuat,
+        // supaya tidak "nyangkut" di tanggal kemarin akibat browser me-restore
+        // nilai input lama (mis. tab Chrome yang dibuka lagi setelah sekian lama).
+        if (inputTanggalKet) inputTanggalKet.value = tanggalHariIniLokal();
+        if (inputTanggalSim) inputTanggalSim.value = tanggalHariIniLokal();
+      } else {
+        // Dipanggil ulang setelah tambah/edit/hapus siswa -> JANGAN timpa tanggal
+        // yang mungkin sudah sengaja dimundurkan/diubah manual oleh guru.
+        if (inputTanggalKet && !inputTanggalKet.value) inputTanggalKet.value = tanggalHariIniLokal();
+        if (inputTanggalSim && !inputTanggalSim.value) inputTanggalSim.value = tanggalHariIniLokal();
       }
+
+      updatePreviewTanggalKet();
     }
 
     async function catatKeteranganSiswa(status) {
@@ -1245,7 +1255,7 @@
       const rekapHariIni = dataRekapBulanIni.filter(p => String(p.tanggal).split('/')[0] === tanggalTerpilih);
 
       if (rekapHariIni.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="text-center py-6 text-slate-400">Belum ada riwayat presensi di tanggal ini.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-slate-400">Belum ada riwayat presensi di tanggal ini.</td></tr>`;
         return;
       }
 
@@ -1266,6 +1276,7 @@
               ${p.status}
             </span>
           </td>
+          <td class="px-4 py-2 text-slate-500 text-xs">${p.keterangan || '-'}</td>
           <td class="px-4 py-2 text-slate-700 font-mono text-xs text-right whitespace-nowrap">${p.tanggal} <span class="text-slate-400">|</span> <b>${p.waktu}</b></td>
         </tr>
       `).join('');
@@ -1453,16 +1464,23 @@
       console.log('[renderRekapBulanan] listSiswa:', listSiswa.length, '| dataRekapBulanIni:', dataRekapBulanIni.length, dataRekapBulanIni);
 
       // Header: No, Nama, tanggal 1..akhir bulan (bisa diklik untuk tandai libur manual), lalu total H/S/I/A
+      const now = new Date();
+      const isBulanTahunIni = (now.getFullYear() === tahun) && (now.getMonth() + 1 === bulan);
+      const tanggalHariIniAngka = now.getDate();
+
       let headHtml = `<tr><th class="px-3 py-3">No</th><th class="px-3 py-3">Nama Murid</th>`;
       for (let d = 1; d <= daysInMonth; d++) {
         const hariKe = new Date(tahun, bulan - 1, d).getDay();
         const isMinggu = (hariKe === 0);
         const isLiburManual = setLiburManual.has(d);
+        const isHariIni = isBulanTahunIni && (d === tanggalHariIniAngka);
 
-        if (isMinggu) {
-          headHtml += `<th class="px-1.5 py-3 text-center text-slate-400" title="Hari Minggu (otomatis libur)">${d}</th>`;
-        } else if (isLiburManual) {
+        if (isLiburManual) {
           headHtml += `<th class="px-1.5 py-3 text-center bg-rose-600 text-white rounded cursor-pointer select-none" title="Klik untuk batalkan tanda libur" onclick="toggleLiburManual(${d})">${d}</th>`;
+        } else if (isHariIni) {
+          headHtml += `<th class="px-1.5 py-3 text-center bg-sky-600 text-white rounded cursor-pointer select-none" title="Hari ini. Klik untuk tandai sebagai hari libur" onclick="toggleLiburManual(${d})">${d}</th>`;
+        } else if (isMinggu) {
+          headHtml += `<th class="px-1.5 py-3 text-center text-slate-400" title="Hari Minggu (otomatis libur)">${d}</th>`;
         } else {
           headHtml += `<th class="px-1.5 py-3 text-center cursor-pointer select-none hover:bg-brand-100 rounded transition" title="Klik untuk tandai sebagai hari libur" onclick="toggleLiburManual(${d})">${d}</th>`;
         }
