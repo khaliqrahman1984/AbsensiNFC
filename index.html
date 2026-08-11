@@ -323,9 +323,14 @@
           <h2 class="text-xl font-bold text-slate-800">Manajemen Kartu & Data Siswa</h2>
           <p class="text-xs text-slate-500">Daftarkan UID Kartu NFC fisik milik siswa ke dalam sistem (tersimpan di Google Sheets)</p>
         </div>
-        <button onclick="openModalSiswa()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl shadow-sm transition flex items-center gap-2">
-          <i class="fa-solid fa-plus"></i> Tambah Siswa Baru
-        </button>
+        <div class="grid grid-cols-2 sm:flex gap-2 w-full sm:w-auto">
+          <button onclick="openModalSiswa()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl shadow-sm transition flex items-center justify-center gap-2">
+            <i class="fa-solid fa-plus"></i> Tambah Siswa Baru
+          </button>
+          <button onclick="openModalBulkSiswa()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl shadow-sm transition flex items-center justify-center gap-2">
+            <i class="fa-solid fa-list"></i> Tambah Semua Murid
+          </button>
+        </div>
       </div>
 
       <!-- Tabel Data Siswa -->
@@ -516,6 +521,25 @@
     </div>
   </div>
 
+  <!-- MODAL: TAMBAH SISWA MASSAL (BULK) -->
+  <div id="modal-bulk-siswa" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-hidden">
+      <div class="bg-indigo-700 px-5 py-4 text-white flex justify-between items-center">
+        <h3 class="font-bold text-base">Tambah Siswa Massal</h3>
+        <button onclick="closeModalBulkSiswa()" class="text-indigo-100 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="p-5 space-y-3">
+        <p class="text-xs text-slate-500">Satu siswa per baris, format: <code class="bg-slate-100 px-1 rounded">NISN;;Nama Murid;;Kelas</code>. UID Kartu NFC dikosongkan dulu, bisa diisi belakangan lewat "Scan Kartu" di menu Edit.</p>
+        <textarea id="bulk-siswa-textarea" rows="10" placeholder="10012027;;Budi Santoso;;X IPA 1&#10;10012028;;Siti Aminah;;X IPA 1&#10;10012029;;Joko Prasetyo;;X IPS 2" class="w-full text-xs p-3 rounded-lg border border-slate-300 font-mono focus:outline-none focus:border-indigo-500 resize-none"></textarea>
+        <p id="bulk-siswa-preview" class="text-[11px] text-slate-400"></p>
+      </div>
+      <div class="px-5 pb-5 flex justify-end gap-2">
+        <button type="button" onclick="closeModalBulkSiswa()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">Batal</button>
+        <button type="button" id="btn-simpan-bulk-siswa" onclick="simpanBulkSiswa()" class="px-4 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm">Simpan Semua</button>
+      </div>
+    </div>
+  </div>
+
 
 <!-- TOAST NOTIFICATION CONTAINER -->
   <div id="toast-container" class="fixed top-4 right-4 z-[100] space-y-2 w-[calc(100%-2rem)] max-w-sm"></div>
@@ -545,7 +569,7 @@
     // -> Type: Web app -> Execute as: Me -> Who has access: Anyone
     // -> Deploy -> salin URL yang berakhiran /exec
     // ==========================================================
-    const API_URL = 'https://script.google.com/macros/s/AKfycbwOw-zWrzEErVlmdezB63b_OgHuyG-5o9cGTi7YtOlDub1Ow5cewVshj83IPmCURd23/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbwlcWktRhQxPqRfiMox9soTibdmYdzAksHUOyB2c7PHRAFK_JXmy_IoNJWsAXwvYd9b/exec';
 
     // --- STATE ---
     let listSiswa = [];
@@ -1183,6 +1207,84 @@
         showToast('success', 'Berhasil Dihapus', 'Data siswa sudah dihapus dari spreadsheet.');
       } catch (err) {
         showToast('error', 'Gagal Menghapus', err.message);
+      }
+    }
+
+    // --- TAMBAH SISWA MASSAL (BULK) ---
+    function openModalBulkSiswa() {
+      document.getElementById('bulk-siswa-textarea').value = '';
+      document.getElementById('bulk-siswa-preview').innerText = '';
+      document.getElementById('modal-bulk-siswa').classList.remove('hidden');
+    }
+
+    function closeModalBulkSiswa() {
+      document.getElementById('modal-bulk-siswa').classList.add('hidden');
+    }
+
+    function parseBulkSiswaInput_() {
+      const raw = document.getElementById('bulk-siswa-textarea').value;
+      const baris = raw.split('\n').map(b => b.trim()).filter(b => b.length > 0);
+
+      const hasilValid = [];
+      const baisGagal = [];
+
+      baris.forEach((b, idx) => {
+        const bagian = b.split(';;').map(x => x.trim());
+        if (bagian.length !== 3 || !bagian[0] || !bagian[1] || !bagian[2]) {
+          baisGagal.push(idx + 1);
+          return;
+        }
+        hasilValid.push({ nisn: bagian[0], nama: bagian[1], kelas: bagian[2] });
+      });
+
+      return { hasilValid, baisGagal };
+    }
+
+    async function simpanBulkSiswa() {
+      const { hasilValid, baisGagal } = parseBulkSiswaInput_();
+
+      if (hasilValid.length === 0) {
+        showToast('warning', 'Data Kosong', 'Belum ada baris data siswa yang valid untuk disimpan.');
+        return;
+      }
+
+      if (baisGagal.length > 0) {
+        const lanjut = await showConfirmDialog(
+          `Ada ${baisGagal.length} baris dengan format salah (baris ke: ${baisGagal.join(', ')}) dan akan dilewati. Lanjutkan menyimpan ${hasilValid.length} siswa yang formatnya benar?`,
+          'Sebagian Baris Tidak Valid',
+          'Ya, Lanjutkan'
+        );
+        if (!lanjut) return;
+      }
+
+      const btn = document.getElementById('btn-simpan-bulk-siswa');
+      btn.disabled = true;
+
+      let sukses = 0, gagal = 0;
+      for (let i = 0; i < hasilValid.length; i++) {
+        const s = hasilValid[i];
+        btn.innerText = `Menyimpan... (${i + 1}/${hasilValid.length})`;
+        try {
+          await callAPI('saveSiswa', { id: '', nisn: s.nisn, nama: s.nama, kelas: s.kelas, uid: '' });
+          sukses++;
+        } catch (err) {
+          console.error('Gagal simpan siswa (bulk):', s, err);
+          gagal++;
+        }
+      }
+
+      btn.disabled = false;
+      btn.innerText = 'Simpan Semua';
+
+      listSiswa = await callAPI('getSiswa');
+      renderSiswaTable();
+      populateSimulatorDropdown();
+      closeModalBulkSiswa();
+
+      if (gagal === 0) {
+        showToast('success', 'Berhasil Disimpan', `${sukses} siswa berhasil ditambahkan.`);
+      } else {
+        showToast('warning', 'Sebagian Gagal', `${sukses} siswa berhasil, ${gagal} gagal disimpan. Cek console (F12) untuk detail.`);
       }
     }
 
