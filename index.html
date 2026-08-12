@@ -529,8 +529,12 @@
         <button onclick="closeModalBulkSiswa()" class="text-indigo-100 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="p-5 space-y-3">
-        <p class="text-xs text-slate-500">Satu siswa per baris, format: <code class="bg-slate-100 px-1 rounded">NISN;;Nama Murid;;Kelas</code>. UID Kartu NFC dikosongkan dulu, bisa diisi belakangan lewat "Scan Kartu" di menu Edit.</p>
-        <textarea id="bulk-siswa-textarea" rows="10" placeholder="10012027;;Budi Santoso;;X IPA 1&#10;10012028;;Siti Aminah;;X IPA 1&#10;10012029;;Joko Prasetyo;;X IPS 2" class="w-full text-xs p-3 rounded-lg border border-slate-300 font-mono focus:outline-none focus:border-indigo-500 resize-none"></textarea>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Kelas / Rombel (berlaku untuk semua baris di bawah)</label>
+          <input type="text" id="bulk-siswa-kelas" placeholder="Misal: X IPA 1" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
+        </div>
+        <p class="text-xs text-slate-500">Satu siswa per baris, format: <code class="bg-slate-100 px-1 rounded">NISN;;Nama Murid</code>. Kelas diambil dari kotak di atas. UID Kartu NFC dikosongkan dulu, bisa diisi belakangan lewat "Scan Kartu" di menu Edit.</p>
+        <textarea id="bulk-siswa-textarea" rows="10" placeholder="10012027;;Budi Santoso&#10;10012028;;Siti Aminah&#10;10012029;;Joko Prasetyo" class="w-full text-xs p-3 rounded-lg border border-slate-300 font-mono focus:outline-none focus:border-indigo-500 resize-none"></textarea>
         <p id="bulk-siswa-preview" class="text-[11px] text-slate-400"></p>
       </div>
       <div class="px-5 pb-5 flex justify-end gap-2">
@@ -569,7 +573,7 @@
     // -> Type: Web app -> Execute as: Me -> Who has access: Anyone
     // -> Deploy -> salin URL yang berakhiran /exec
     // ==========================================================
-    const API_URL = 'https://script.google.com/macros/s/AKfycbwlcWktRhQxPqRfiMox9soTibdmYdzAksHUOyB2c7PHRAFK_JXmy_IoNJWsAXwvYd9b/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzD0QdB2z9GORJI61P9GR1yUPc5iyhxmH4ad25mwvxua5ttGDaJLVvG6FdUX7WySKqg/exec';
 
     // --- STATE ---
     let listSiswa = [];
@@ -1212,6 +1216,7 @@
 
     // --- TAMBAH SISWA MASSAL (BULK) ---
     function openModalBulkSiswa() {
+      document.getElementById('bulk-siswa-kelas').value = '';
       document.getElementById('bulk-siswa-textarea').value = '';
       document.getElementById('bulk-siswa-preview').innerText = '';
       document.getElementById('modal-bulk-siswa').classList.remove('hidden');
@@ -1223,6 +1228,7 @@
 
     function parseBulkSiswaInput_() {
       const raw = document.getElementById('bulk-siswa-textarea').value;
+      const kelas = document.getElementById('bulk-siswa-kelas').value.trim();
       const baris = raw.split('\n').map(b => b.trim()).filter(b => b.length > 0);
 
       const hasilValid = [];
@@ -1230,40 +1236,86 @@
 
       baris.forEach((b, idx) => {
         const bagian = b.split(';;').map(x => x.trim());
-        if (bagian.length !== 3 || !bagian[0] || !bagian[1] || !bagian[2]) {
+        if (bagian.length !== 2 || !bagian[0] || !bagian[1]) {
           baisGagal.push(idx + 1);
           return;
         }
-        hasilValid.push({ nisn: bagian[0], nama: bagian[1], kelas: bagian[2] });
+        hasilValid.push({ nisn: bagian[0], nama: bagian[1], kelas: kelas });
       });
 
       return { hasilValid, baisGagal };
     }
 
     async function simpanBulkSiswa() {
-      const { hasilValid, baisGagal } = parseBulkSiswaInput_();
-
-      if (hasilValid.length === 0) {
-        showToast('warning', 'Data Kosong', 'Belum ada baris data siswa yang valid untuk disimpan.');
+      const kelas = document.getElementById('bulk-siswa-kelas').value.trim();
+      if (!kelas) {
+        showToast('warning', 'Kelas Kosong', 'Silakan isi Kelas / Rombel terlebih dahulu.');
         return;
       }
 
-      if (baisGagal.length > 0) {
-        const lanjut = await showConfirmDialog(
-          `Ada ${baisGagal.length} baris dengan format salah (baris ke: ${baisGagal.join(', ')}) dan akan dilewati. Lanjutkan menyimpan ${hasilValid.length} siswa yang formatnya benar?`,
-          'Sebagian Baris Tidak Valid',
-          'Ya, Lanjutkan'
-        );
+      const { hasilValid, baisGagal } = parseBulkSiswaInput_();
+
+      if (hasilValid.length === 0) {
+        showToast('warning', 'Data Kosong', 'Belum ada baris data siswa yang valid untuk disimpan atau salah format penulisan.');
+        return;
+      }
+
+      // --- CEK DUPLIKAT terhadap data siswa yang SUDAH terdaftar (listSiswa) ---
+      // Hanya dicek berdasarkan NISN. Nama yang sama dibiarkan saja (tidak dianggap duplikat).
+      const normalisasi = (txt) => String(txt).trim().toLowerCase();
+      const dataUntukDisimpan = [];
+      const dataDuplikat = [];
+
+      hasilValid.forEach((s, idx) => {
+        const duplikatNisn = listSiswa.find(x => normalisasi(x.nisn) === normalisasi(s.nisn));
+
+        if (duplikatNisn) {
+          dataDuplikat.push({
+            baris: idx + 1,
+            nisn: s.nisn,
+            nama: s.nama,
+            alasan: 'NISN sudah terdaftar'
+          });
+        } else {
+          dataUntukDisimpan.push(s);
+        }
+      });
+
+      // Cek juga duplikat ANTAR baris di dalam textarea itu sendiri (mis. NISN sama ditulis 2x)
+      const nisnTerpakai = new Set();
+      const dataUntukDisimpanFinal = [];
+      dataUntukDisimpan.forEach((s, idx) => {
+        const key = normalisasi(s.nisn);
+        if (nisnTerpakai.has(key)) {
+          dataDuplikat.push({ baris: '-', nisn: s.nisn, nama: s.nama, alasan: 'NISN ganda di dalam daftar yang ditempel' });
+        } else {
+          nisnTerpakai.add(key);
+          dataUntukDisimpanFinal.push(s);
+        }
+      });
+
+      if (baisGagal.length > 0 || dataDuplikat.length > 0) {
+        let pesanPeringatan = '';
+        if (baisGagal.length > 0) pesanPeringatan += `${baisGagal.length} baris format salah (baris ke: ${baisGagal.join(', ')}). `;
+        if (dataDuplikat.length > 0) pesanPeringatan += `${dataDuplikat.length} baris duplikat (NISN/Nama sudah terdaftar): ${dataDuplikat.map(d => d.nama).join(', ')}. `;
+        pesanPeringatan += `Baris ini akan DILEWATI. Lanjutkan menyimpan ${dataUntukDisimpanFinal.length} siswa yang valid & belum terdaftar?`;
+
+        const lanjut = await showConfirmDialog(pesanPeringatan, 'Sebagian Baris Dilewati', 'Ya, Lanjutkan');
         if (!lanjut) return;
+      }
+
+      if (dataUntukDisimpanFinal.length === 0) {
+        showToast('warning', 'Tidak Ada yang Disimpan', 'Semua baris duplikat atau formatnya salah.');
+        return;
       }
 
       const btn = document.getElementById('btn-simpan-bulk-siswa');
       btn.disabled = true;
 
       let sukses = 0, gagal = 0;
-      for (let i = 0; i < hasilValid.length; i++) {
-        const s = hasilValid[i];
-        btn.innerText = `Menyimpan... (${i + 1}/${hasilValid.length})`;
+      for (let i = 0; i < dataUntukDisimpanFinal.length; i++) {
+        const s = dataUntukDisimpanFinal[i];
+        btn.innerText = `Menyimpan... (${i + 1}/${dataUntukDisimpanFinal.length})`;
         try {
           await callAPI('saveSiswa', { id: '', nisn: s.nisn, nama: s.nama, kelas: s.kelas, uid: '' });
           sukses++;
@@ -1276,15 +1328,27 @@
       btn.disabled = false;
       btn.innerText = 'Simpan Semua';
 
+      // Muat ulang data siswa terbaru dari spreadsheet
       listSiswa = await callAPI('getSiswa');
       renderSiswaTable();
       populateSimulatorDropdown();
+
+      // --- SELESAI: tutup dialog & beri pemberitahuan akhir ---
       closeModalBulkSiswa();
 
+      const dilewati = dataDuplikat.length + baisGagal.length;
       if (gagal === 0) {
-        showToast('success', 'Berhasil Disimpan', `${sukses} siswa berhasil ditambahkan.`);
+        showToast(
+          'success',
+          'Selesai',
+          `Proses selesai. ${sukses} siswa berhasil ditambahkan` + (dilewati > 0 ? `, ${dilewati} baris dilewati (duplikat/format salah).` : '.')
+        );
       } else {
-        showToast('warning', 'Sebagian Gagal', `${sukses} siswa berhasil, ${gagal} gagal disimpan. Cek console (F12) untuk detail.`);
+        showToast(
+          'warning',
+          'Selesai (Sebagian Gagal)',
+          `Proses selesai. ${sukses} berhasil, ${gagal} gagal disimpan, ${dilewati} dilewati (duplikat/format salah). Cek console (F12) untuk detail.`
+        );
       }
     }
 
