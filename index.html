@@ -158,8 +158,8 @@
 
               <div>
                 <label class="block text-xs font-semibold text-slate-600 mb-1">Pilih Siswa</label>
-                <select id="ket-siswa-select" class="w-full text-xs p-2 rounded-lg border border-slate-300 bg-slate-50 focus:outline-none focus:border-brand-500">
-                  <!-- Injected via JS -->
+                <select id="ket-siswa-select" onfocus="pastikanListSiswaTerbuat()" class="w-full text-xs p-2 rounded-lg border border-slate-300 bg-slate-50 focus:outline-none focus:border-brand-500">
+                  <option value="">-- Klik untuk memuat data siswa --</option>
                 </select>
               </div>
 
@@ -255,8 +255,8 @@
                 <select id="sim-siswa-select" class="w-full text-xs p-2 rounded-lg border border-slate-300 bg-slate-50 focus:outline-none focus:border-brand-500">
                   <!-- Injected via JS -->
                 </select>
-                <button type="button" onclick="pilihSiswaBerikutnya()" title="Pilih murid selanjutnya" class="px-3 py-2 bg-slate-700 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition flex-shrink-0">
-                  <i class="fa-solid fa-arrow-down"></i>
+                <button type="button" id="btn-absen-semua" onclick="openModalAbsenMassal()" title="Absen hadir massal (checklist)" class="px-3 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold transition flex-shrink-0">
+                  <i class="fa-solid fa-people-group"></i>
                 </button>
               </div>
               <button onclick="simulasikanTapSelected()" class="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2">
@@ -364,9 +364,9 @@
           <p class="text-xs text-slate-500">Data diambil langsung dari sheet bulan &amp; tahun yang dipilih</p>
         </div>
         <div class="w-full sm:w-auto grid grid-cols-2 sm:flex gap-2 items-center">
-          <select id="filter-bulan" onchange="muatSemuaRekap()" class="w-full sm:w-auto text-xs p-2 rounded-lg border border-slate-300 bg-white"></select>
-          <select id="filter-tahun" onchange="muatSemuaRekap()" class="w-full sm:w-auto text-xs p-2 rounded-lg border border-slate-300 bg-white"></select>
-          <button onclick="muatSemuaRekap()" class="col-span-2 sm:col-span-1 w-full sm:w-auto px-3 py-1.5 bg-brand-50 text-brand-700 hover:bg-brand-100 border border-brand-200 text-xs font-semibold rounded-lg transition">
+          <select id="filter-bulan" onchange="onGantiFilterRekap()" class="w-full sm:w-auto text-xs p-2 rounded-lg border border-slate-300 bg-white"></select>
+          <select id="filter-tahun" onchange="onGantiFilterRekap()" class="w-full sm:w-auto text-xs p-2 rounded-lg border border-slate-300 bg-white"></select>
+          <button onclick="klikMuatUlang()" class="col-span-2 sm:col-span-1 w-full sm:w-auto px-3 py-1.5 bg-brand-50 text-brand-700 hover:bg-brand-100 border border-brand-200 text-xs font-semibold rounded-lg transition">
             <i class="fa-solid fa-rotate"></i> Muat Ulang
           </button>
         </div>
@@ -375,10 +375,11 @@
       <!-- Card: Rekap Absen Harian -->
       <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="px-4 pt-4 flex items-center justify-between flex-wrap gap-2">
-          <div class="flex items-center gap-2">
-            <i class="fa-solid fa-calendar-day text-brand-500"></i>
+          <button type="button" onclick="toggleSortAbjadHarian()" title="Klik untuk urutkan nama A-Z / Z-A" class="flex items-center gap-2 hover:opacity-70 transition">
+            <i id="icon-sort-harian" class="fa-solid fa-calendar-day text-brand-500"></i>
             <h3 class="font-bold text-slate-800 text-sm">Rekap Absen Harian</h3>
-          </div>
+            <i class="fa-solid fa-arrow-down-a-z text-slate-300 text-xs"></i>
+          </button>
           <div class="flex items-center gap-1">
             <button type="button" onclick="geserTanggalSebelumnya()" title="Tanggal sebelumnya" class="p-2 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 transition">
               <i class="fa-solid fa-chevron-left text-xs"></i>
@@ -393,6 +394,7 @@
           <table class="w-full text-left text-sm">
             <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wider">
               <tr>
+                <th class="px-4 py-3 w-10">No</th>
                 <th class="px-4 py-3">Nama Siswa</th>
                 <th class="px-4 py-3">Kelas</th>
                 <th class="px-4 py-3">Status Jam</th>
@@ -401,80 +403,86 @@
               </tr>
             </thead>
             <tbody id="table-presensi-body" class="divide-y divide-slate-100">
-              <tr><td colspan="5" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner spin"></i> Memuat data...</td></tr>
+              <tr><td colspan="6" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner spin"></i> Memuat data...</td></tr>
             </tbody>
           </table>
         </div>
       </div>
 
-      <!-- Card: Rekap Absen Bulanan -->
+      <!-- Card: Rekap Absen Bulanan (dilipat/collapsed secara default) -->
       <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div class="px-4 pt-4">
-          <div class="flex items-center justify-between flex-wrap gap-2">
-            <div class="flex items-center gap-2">
-              <i class="fa-solid fa-calendar-days text-purple-500"></i>
-              <h3 id="judul-rekap-bulanan" class="font-bold text-slate-800 text-sm">Rekap Absen Bulan</h3>
-            </div>
-            <button type="button" onclick="shareRekapBulanan()" class="ml-auto px-3 py-1.5 bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 text-xs font-semibold rounded-lg transition flex items-center gap-1.5">
-              <i class="fa-solid fa-share-nodes"></i> Bagikan
-            </button>
+        <div class="px-4 py-4 flex items-center justify-between flex-wrap gap-2">
+          <button type="button" onclick="toggleRekapBulanan()" class="flex items-center gap-2 flex-1 text-left min-w-0">
+            <i class="fa-solid fa-calendar-days text-purple-500"></i>
+            <h3 id="judul-rekap-bulanan" class="font-bold text-slate-800 text-sm truncate">Rekap Absen Bulan</h3>
+            <i id="bulanan-chevron" class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform ml-1"></i>
+          </button>
+          <button type="button" onclick="shareRekapBulanan()" class="px-3 py-1.5 bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 flex-shrink-0">
+            <i class="fa-solid fa-share-nodes"></i> Bagikan
+          </button>
+        </div>
+
+        <div id="rekap-bulanan-content" class="hidden">
+          <p class="px-4 text-[11px] text-slate-400">H = Hadir (tap kartu), S = Sakit, I = Izin, A = Alpha — dicatat manual lewat menu "Catat Sakit/Izin/Alpha" di Mode Kios. Kolom kosong = belum ada catatan. ■ = Hari Minggu. Klik nomor tanggal di header tabel untuk menandai/batalkan hari libur lain secara manual.</p>
+          <div class="overflow-x-auto mt-2">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase tracking-wider" id="table-bulanan-head">
+                <tr>
+                  <th class="px-3 py-3">No</th>
+                  <th class="px-3 py-3">Nama Murid</th>
+                </tr>
+              </thead>
+              <tbody id="table-bulanan-body" class="divide-y divide-slate-100">
+                <tr><td colspan="2" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner spin"></i> Memuat data...</td></tr>
+              </tbody>
+            </table>
           </div>
-          <p class="text-[11px] text-slate-400 mt-2">H = Hadir (tap kartu), S = Sakit, I = Izin, A = Alpha — dicatat manual lewat menu "Catat Sakit/Izin/Alpha" di Mode Kios. Kolom kosong = belum ada catatan. ■ = Hari Minggu. Klik nomor tanggal di header tabel untuk menandai/batalkan hari libur lain secara manual.</p>
+          <p class="px-4 pb-4 pt-2 text-[11px] text-slate-400 flex items-center gap-3 flex-wrap">
+            <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 bg-slate-100 border border-slate-200"></span> Hari Minggu (bukan hari sekolah)</span>
+            <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 bg-sky-600"></span> Hari ini</span>
+            <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 bg-amber-100 border-2 border-amber-400"></span> Tercatat di hari Minggu/libur (dipaksa)</span>
+          </p>
         </div>
-        <div class="overflow-x-auto mt-2">
-          <table class="w-full text-left text-xs">
-            <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase tracking-wider" id="table-bulanan-head">
-              <tr>
-                <th class="px-3 py-3">No</th>
-                <th class="px-3 py-3">Nama Murid</th>
-              </tr>
-            </thead>
-            <tbody id="table-bulanan-body" class="divide-y divide-slate-100">
-              <tr><td colspan="2" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner spin"></i> Memuat data...</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <p class="px-4 pb-4 pt-2 text-[11px] text-slate-400 flex items-center gap-3 flex-wrap">
-          <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 bg-slate-100 border border-slate-200"></span> Hari Minggu (bukan hari sekolah)</span>
-          <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 bg-sky-600"></span> Hari ini</span>
-          <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 bg-amber-100 border-2 border-amber-400"></span> Tercatat di hari Minggu/libur (dipaksa)</span>
-        </p>
       </div>
 
-      <!-- Card: Rekap Per Semester -->
+      <!-- Card: Rekap Per Semester (dilipat/collapsed secara default) -->
       <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div class="px-4 pt-4 flex items-center justify-between flex-wrap gap-2">
-          <div class="flex items-center gap-2">
+        <div class="px-4 py-4 flex items-center justify-between flex-wrap gap-2">
+          <button type="button" onclick="toggleRekapSemester()" class="flex items-center gap-2 flex-1 text-left min-w-0">
             <i class="fa-solid fa-calendar-week text-indigo-500"></i>
-            <h3 id="judul-rekap-semester" class="font-bold text-slate-800 text-sm">Rekap Per Semester</h3>
-          </div>
-          <p class="text-[11px] text-slate-400">Mengikuti filter Bulan &amp; Tahun di atas</p>
+            <h3 id="judul-rekap-semester" class="font-bold text-slate-800 text-sm truncate">Rekap Per Semester</h3>
+            <i id="semester-chevron" class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform ml-1"></i>
+          </button>
+          <p class="text-[11px] text-slate-400 flex-shrink-0">Mengikuti filter Bulan &amp; Tahun di atas</p>
         </div>
-        <p class="px-4 text-[11px] text-slate-400 mt-2">Semester Ganjil: Juli–Desember. Semester Genap: Januari–Juni. H = Hadir, S = Sakit, I = Izin, A = Alpha.</p>
-        <div class="overflow-x-auto mt-2">
-          <table class="w-full text-left text-xs">
-            <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase tracking-wider">
-              <tr>
-                <th rowspan="2" class="px-3 py-3 align-bottom">No</th>
-                <th rowspan="2" class="px-3 py-3 align-bottom">Nama Murid</th>
-                <th id="th-semester-ganjil" colspan="4" class="px-3 py-2 text-center border-l border-slate-200">Semester Ganjil (Jul–Des)</th>
-                <th id="th-semester-genap" colspan="4" class="px-3 py-2 text-center border-l border-slate-200">Semester Genap (Jan–Jun)</th>
-              </tr>
-              <tr>
-                <th class="px-2 py-2 text-center border-l border-slate-200 bg-emerald-50">H</th>
-                <th class="px-2 py-2 text-center bg-sky-50">S</th>
-                <th class="px-2 py-2 text-center bg-purple-50">I</th>
-                <th class="px-2 py-2 text-center bg-rose-50">A</th>
-                <th class="px-2 py-2 text-center border-l border-slate-200 bg-emerald-50">H</th>
-                <th class="px-2 py-2 text-center bg-sky-50">S</th>
-                <th class="px-2 py-2 text-center bg-purple-50">I</th>
-                <th class="px-2 py-2 text-center bg-rose-50">A</th>
-              </tr>
-            </thead>
-            <tbody id="table-semester-body">
-              <tr><td colspan="10" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner spin"></i> Memuat data...</td></tr>
-            </tbody>
-          </table>
+
+        <div id="rekap-semester-content" class="hidden">
+          <p class="px-4 text-[11px] text-slate-400">Semester Ganjil: Juli–Desember. Semester Genap: Januari–Juni. H = Hadir, S = Sakit, I = Izin, A = Alpha.</p>
+          <div class="overflow-x-auto mt-2">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase tracking-wider">
+                <tr>
+                  <th rowspan="2" class="px-3 py-3 align-bottom">No</th>
+                  <th rowspan="2" class="px-3 py-3 align-bottom">Nama Murid</th>
+                  <th id="th-semester-ganjil" colspan="4" class="px-3 py-2 text-center border-l border-slate-200">Semester Ganjil (Jul–Des)</th>
+                  <th id="th-semester-genap" colspan="4" class="px-3 py-2 text-center border-l border-slate-200">Semester Genap (Jan–Jun)</th>
+                </tr>
+                <tr>
+                  <th class="px-2 py-2 text-center border-l border-slate-200 bg-emerald-50">H</th>
+                  <th class="px-2 py-2 text-center bg-sky-50">S</th>
+                  <th class="px-2 py-2 text-center bg-purple-50">I</th>
+                  <th class="px-2 py-2 text-center bg-rose-50">A</th>
+                  <th class="px-2 py-2 text-center border-l border-slate-200 bg-emerald-50">H</th>
+                  <th class="px-2 py-2 text-center bg-sky-50">S</th>
+                  <th class="px-2 py-2 text-center bg-purple-50">I</th>
+                  <th class="px-2 py-2 text-center bg-rose-50">A</th>
+                </tr>
+              </thead>
+              <tbody id="table-semester-body">
+                <tr><td colspan="10" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner spin"></i> Memuat data...</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -545,6 +553,36 @@
   </div>
 
 
+<!-- MODAL: ABSEN HADIR MASSAL (CHECKLIST) -->
+  <div id="modal-absen-massal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[85vh]">
+      <div class="bg-emerald-700 px-5 py-4 text-white flex justify-between items-center flex-shrink-0">
+        <div>
+          <h3 class="font-bold text-base">Absen Hadir Massal</h3>
+          <p id="absen-massal-tanggal" class="text-xs text-emerald-100 mt-0.5">-</p>
+        </div>
+        <button onclick="closeModalAbsenMassal()" class="text-emerald-100 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="px-5 py-3 border-b border-slate-200 flex justify-between items-center flex-shrink-0">
+        <label class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+          <input type="checkbox" id="absen-massal-centang-semua" onchange="toggleCentangSemuaAbsenMassal(this.checked)" class="w-4 h-4">
+          Centang semua
+        </label>
+        <span id="absen-massal-counter" class="text-xs text-slate-500">0/0 dipilih</span>
+      </div>
+
+      <div id="absen-massal-list" class="overflow-y-auto px-2 py-2 flex-1">
+        <p class="text-center text-slate-400 text-sm py-6"><i class="fa-solid fa-spinner spin"></i> Memuat data...</p>
+      </div>
+
+      <div class="px-5 py-3 border-t border-slate-200 flex justify-end gap-2 flex-shrink-0">
+        <button type="button" onclick="closeModalAbsenMassal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">Batal</button>
+        <button type="button" id="btn-submit-absen-massal" onclick="submitAbsenMassal()" class="px-4 py-2 text-xs font-semibold bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg shadow-sm">Absenkan 0 murid</button>
+      </div>
+    </div>
+  </div>
+
 <!-- TOAST NOTIFICATION CONTAINER -->
   <div id="toast-container" class="fixed top-4 right-4 z-[100] space-y-2 w-[calc(100%-2rem)] max-w-sm"></div>
 
@@ -573,13 +611,23 @@
     // -> Type: Web app -> Execute as: Me -> Who has access: Anyone
     // -> Deploy -> salin URL yang berakhiran /exec
     // ==========================================================
-    const API_URL = 'https://script.google.com/macros/s/AKfycbzb9HlIWuZymvSgnPSJ_YPGdsdjvgZfEVhlBfjIxH2oQ1vvAVIQmcdYDXNCKjRegfTh/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbw5CeIsncC7r9KioCI1KOLbzrUD_aHKUabxMUavn3ElJwCoVpYoGZPOAZntOR41LniW/exec';
 
     // --- STATE ---
     let listSiswa = [];
     let isNfcActive = false;
     let ndefReaderInstance = null;
     let isModalScanActive = false;
+
+    // --- FLAG CACHE (supaya tidak load ulang data yang sama berkali-kali dalam satu sesi) ---
+    let siswaSudahDimuat = false;        // listSiswa sudah pernah diambil dari server?
+    let simulatorSudahDibuka = false;    // fold "Simulator Tap Kartu" sudah pernah dibuka?
+    let rekapDataCacheKey = null;        // "tahun-bulan" terakhir yg datanya (getRekap) sudah diambil - dipakai Harian & Bulanan
+    let rekapBulananCacheKey = null;     // "tahun-bulan" terakhir yg libur manual-nya sudah diambil utk Rekap Bulanan
+    let rekapSemesterCacheKey = null;    // "tahunGanjil-tahunGenap" terakhir yg 12 bulan datanya sudah diambil
+    let rekapSemesterCacheGanjil = [];
+    let rekapSemesterCacheGenap = [];
+    let sortAbjadRekapHarian = false;    // status toggle sortir nama A-Z di Rekap Absen Harian
 
     // --- PEMANGGIL API KE APPS SCRIPT ---
     async function callAPI(action, payload) {
@@ -629,6 +677,8 @@
         window.speechSynthesis.onvoiceschanged = loadVoiceList;
       }
 
+      populateSimulatorDropdown(true); // hanya set tanggal default; belum butuh listSiswa
+
       if (!API_URL || API_URL.indexOf('script.google.com') === -1) {
         document.getElementById('api-not-configured').classList.remove('hidden');
         setConnStatus(false, 'URL Web App belum diatur / tidak valid');
@@ -641,10 +691,10 @@
     async function muatSemuaData() {
       try {
         setConnStatus(null, 'Menghubungkan ke spreadsheet...');
-        listSiswa = await callAPI('getSiswa'); // listSiswa harus terisi DULU sebelum rekap bulanan dihitung
-        renderSiswaTable();
-        populateSimulatorDropdown(true); // true = pemuatan awal halaman, paksa tanggal ke hari ini
-        await muatSemuaRekap();
+        // Saat halaman pertama kali dibuka, HANYA ambil statistik hari ini (kartu "Ringkasan Hari Ini").
+        // listSiswa SENGAJA belum diambil di sini -- baru diambil otomatis saat benar-benar dibutuhkan:
+        // klik/fokus dropdown "Catat Sakit/Izin/Alpha", buka fold "Simulator Tap Kartu", atau pindah
+        // ke tab "Data Siswa". Lihat pastikanListSiswaTerbuat().
         await muatStatsHariIni();
         setConnStatus(true, 'Terhubung ke Google Sheets');
       } catch (err) {
@@ -817,12 +867,22 @@
       activeBtn.classList.add('bg-brand-900', 'text-white', 'shadow-inner');
       activeBtn.classList.remove('text-brand-100', 'hover:bg-brand-600');
 
-      if (tab === 'laporan') muatSemuaRekap();
+      if (tab === 'siswa') pastikanListSiswaTerbuat();   // load data siswa saat tab ini dipilih (cache)
+      if (tab === 'laporan') muatRekapHarianTab();        // hanya load Rekap Absen HARIAN dulu
     }
 
-    function toggleSimulator() {
-      document.getElementById('simulator-content').classList.toggle('hidden');
-      document.getElementById('simulator-chevron').classList.toggle('rotate-180');
+    async function toggleSimulator() {
+      const content = document.getElementById('simulator-content');
+      const chevron = document.getElementById('simulator-chevron');
+      const sedangTertutup = content.classList.contains('hidden');
+      content.classList.toggle('hidden');
+      chevron.classList.toggle('rotate-180');
+
+      if (sedangTertutup) {
+        simulatorSudahDibuka = true;
+        await pastikanListSiswaTerbuat(); // pastikan data siswa ada, lalu isi dropdown simulator
+        populateSimulatorDropdown();
+      }
     }
 
     // --- WEB NFC API CORE ---
@@ -1015,27 +1075,45 @@
       }
     }
 
-    function populateSimulatorDropdown(isPemuatanAwal = false) {
-      const select = document.getElementById('sim-siswa-select');
-      select.innerHTML = listSiswa.map(s => `<option value="${s.uid}">${s.nama} (${s.kelas}) - ${s.uid}</option>`).join('');
+    /**
+     * Loader terpusat untuk listSiswa. Hanya benar-benar fetch ke server SEKALI per sesi
+     * (cache lewat flag siswaSudahDimuat). Dipanggil dari: klik dropdown "Catat Sakit/Izin/Alpha",
+     * buka fold "Simulator Tap Kartu", pindah ke tab "Data Siswa", atau modal "Absen Massal".
+     */
+    async function pastikanListSiswaTerbuat() {
+      if (!siswaSudahDimuat) {
+        listSiswa = await callAPI('getSiswa');
+        siswaSudahDimuat = true;
+        populateSimulatorDropdown();
+      }
+      renderSiswaTable();
+    }
 
+    function populateSimulatorDropdown(isPemuatanAwal = false) {
+      // Dropdown "Catat Sakit/Izin/Alpha" selalu diisi begitu listSiswa tersedia (kartunya tidak dilipat)
       const selectKet = document.getElementById('ket-siswa-select');
       if (selectKet) {
-        selectKet.innerHTML = listSiswa.map(s => `<option value="${s.nisn}">${s.nama} (${s.kelas})</option>`).join('');
+        selectKet.innerHTML = listSiswa.length
+          ? listSiswa.map(s => `<option value="${s.nisn}">${s.nama} (${s.kelas})</option>`).join('')
+          : '<option value="">-- Klik untuk memuat data siswa --</option>';
+      }
+
+      // Dropdown Simulator "Tap Kartu" HANYA diisi kalau foldnya sudah pernah dibuka,
+      // supaya tidak ada kerja render yang sia-sia saat halaman pertama kali dimuat.
+      if (simulatorSudahDibuka) {
+        const select = document.getElementById('sim-siswa-select');
+        if (select) {
+          select.innerHTML = listSiswa.map(s => `<option value="${s.uid}">${s.nama} (${s.kelas}) - ${s.uid}</option>`).join('');
+        }
       }
 
       const inputTanggalKet = document.getElementById('ket-tanggal');
       const inputTanggalSim = document.getElementById('sim-tanggal-input');
 
       if (isPemuatanAwal) {
-        // Paksa ke tanggal hari ini HANYA saat halaman pertama kali dimuat,
-        // supaya tidak "nyangkut" di tanggal kemarin akibat browser me-restore
-        // nilai input lama (mis. tab Chrome yang dibuka lagi setelah sekian lama).
         if (inputTanggalKet) inputTanggalKet.value = tanggalHariIniLokal();
         if (inputTanggalSim) inputTanggalSim.value = tanggalHariIniLokal();
       } else {
-        // Dipanggil ulang setelah tambah/edit/hapus siswa -> JANGAN timpa tanggal
-        // yang mungkin sudah sengaja dimundurkan/diubah manual oleh guru.
         if (inputTanggalKet && !inputTanggalKet.value) inputTanggalKet.value = tanggalHariIniLokal();
         if (inputTanggalSim && !inputTanggalSim.value) inputTanggalSim.value = tanggalHariIniLokal();
       }
@@ -1044,6 +1122,7 @@
     }
 
     async function catatKeteranganSiswa(status) {
+      await pastikanListSiswaTerbuat(); // jaga-jaga kalau dipanggil sebelum dropdown sempat difokus
       const nisn = document.getElementById('ket-siswa-select').value;
       const tanggal = document.getElementById('ket-tanggal').value;
 
@@ -1103,6 +1182,221 @@
       }
       // Lompat ke opsi berikutnya; kalau sudah di murid terakhir, putar balik ke murid pertama
       select.selectedIndex = (select.selectedIndex + 1) % select.options.length;
+    }
+
+    // --- ABSEN HADIR MASSAL (CHECKLIST) ---
+    async function openModalAbsenMassal() {
+      await pastikanListSiswaTerbuat();
+      if (!listSiswa || listSiswa.length === 0) {
+        showToast('warning', 'Data Kosong', 'Belum ada data siswa terdaftar.');
+        return;
+      }
+
+      const tanggalSimulasi = document.getElementById('sim-tanggal-input').value;
+      const tanggalTampil = tanggalSimulasi ? formatTanggalIndoDisplay(tanggalSimulasi) : formatTanggalIndoDisplay(tanggalHariIniLokal());
+      document.getElementById('absen-massal-tanggal').innerText = tanggalTampil;
+
+      document.getElementById('modal-absen-massal').classList.remove('hidden');
+      document.getElementById('absen-massal-list').innerHTML = `<p class="text-center text-slate-400 text-sm py-6"><i class="fa-solid fa-spinner spin"></i> Memuat data...</p>`;
+
+      const [ty, tm] = (tanggalSimulasi || tanggalHariIniLokal()).split('-').map(Number);
+
+      let nisnSudahAbsenSet = new Set();
+      try {
+        const rekapBulan = await callAPI('getRekap', { tahun: ty, bulan: tm }) || [];
+        rekapBulan.forEach(p => {
+          if (String(p.tanggal) === tanggalTampil) nisnSudahAbsenSet.add(String(p.nisn));
+        });
+      } catch (err) {
+        console.error('Gagal cek data absen yang sudah ada:', err);
+      }
+
+      renderChecklistAbsenMassal(nisnSudahAbsenSet);
+    }
+
+    function renderChecklistAbsenMassal(nisnSudahAbsenSet) {
+      const list = document.getElementById('absen-massal-list');
+
+      list.innerHTML = listSiswa.map(s => {
+        const sudahAbsen = nisnSudahAbsenSet.has(String(s.nisn));
+        return `
+          <label class="flex items-center gap-3 px-3 py-2 rounded-lg ${sudahAbsen ? 'bg-slate-50' : 'hover:bg-slate-50'}">
+            <input type="checkbox"
+              class="w-4 h-4 flex-shrink-0 absen-massal-checkbox"
+              data-uid="${s.uid}"
+              ${sudahAbsen ? 'disabled' : 'checked onchange="updateCounterAbsenMassal()"'}>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold ${sudahAbsen ? 'text-slate-400' : 'text-slate-800'}">${s.nama}</p>
+              <p class="text-xs text-slate-400">${s.kelas}${sudahAbsen ? ' &middot; sudah absen' : ''}</p>
+            </div>
+          </label>
+        `;
+      }).join('');
+
+      updateCounterAbsenMassal();
+    }
+
+    function toggleCentangSemuaAbsenMassal(checked) {
+      document.querySelectorAll('#absen-massal-list .absen-massal-checkbox:not(:disabled)').forEach(cb => {
+        cb.checked = checked;
+      });
+      updateCounterAbsenMassal();
+    }
+
+    function updateCounterAbsenMassal() {
+      const semuaBisaDicentang = document.querySelectorAll('#absen-massal-list .absen-massal-checkbox:not(:disabled)');
+      const tercentang = document.querySelectorAll('#absen-massal-list .absen-massal-checkbox:checked:not(:disabled)');
+
+      document.getElementById('absen-massal-counter').innerText = `${tercentang.length}/${semuaBisaDicentang.length} dipilih`;
+      document.getElementById('btn-submit-absen-massal').innerText = `Absenkan ${tercentang.length} murid`;
+
+      const centangSemua = document.getElementById('absen-massal-centang-semua');
+      centangSemua.checked = semuaBisaDicentang.length > 0 && tercentang.length === semuaBisaDicentang.length;
+    }
+
+    function closeModalAbsenMassal() {
+      document.getElementById('modal-absen-massal').classList.add('hidden');
+    }
+
+    async function submitAbsenMassal() {
+      const btn = document.getElementById('btn-submit-absen-massal');
+      // Langsung disable begitu tombol diklik, supaya tidak bisa diklik berkali-kali
+      // saat masih menunggu proses cek hari libur / dialog konfirmasi (mencegah absen ganda).
+      btn.disabled = true;
+
+      const tercentang = Array.from(document.querySelectorAll('#absen-massal-list .absen-massal-checkbox:checked:not(:disabled)'));
+
+      if (tercentang.length === 0) {
+        showToast('warning', 'Belum Ada yang Dicentang', 'Pilih minimal satu murid untuk diabsenkan.');
+        btn.disabled = false;
+        return;
+      }
+
+      const tanggalSimulasi = document.getElementById('sim-tanggal-input').value;
+      const [ty, tm, td] = (tanggalSimulasi || tanggalHariIniLokal()).split('-').map(Number);
+
+      const isMingguCek = new Date(ty, tm - 1, td).getDay() === 0;
+      let isLiburCek = false;
+      try {
+        const daftarLibur = await callAPI('getLiburManual', { tahun: ty, bulan: tm });
+        isLiburCek = (daftarLibur || []).includes(td);
+      } catch (e) {
+        console.error('Gagal cek libur manual:', e);
+      }
+
+      if (isMingguCek || isLiburCek) {
+        const alasan = isMingguCek ? 'hari Minggu' : 'hari libur';
+        const lanjut = await showConfirmDialog(
+          `Tanggal ini adalah ${alasan}. Tetap absenkan ${tercentang.length} murid yang dicentang?`,
+          'Peringatan: Hari Libur',
+          'Ya, Lanjutkan'
+        );
+        if (!lanjut) {
+          btn.disabled = false;
+          return;
+        }
+      }
+
+      let sukses = 0, duplikat = 0, gagal = 0;
+
+      for (let i = 0; i < tercentang.length; i++) {
+        const uid = tercentang[i].dataset.uid;
+        btn.innerText = `Memproses... (${i + 1}/${tercentang.length})`;
+        try {
+          const hasil = await callAPI('tapKartu', { uid: uid, tanggalSimulasi: tanggalSimulasi || undefined });
+          if (hasil.status === 'sukses') sukses++;
+          else if (hasil.status === 'duplikat') duplikat++;
+          else gagal++;
+        } catch (err) {
+          console.error('Gagal absen massal untuk UID', uid, err);
+          gagal++;
+        }
+      }
+
+      btn.disabled = false;
+      closeModalAbsenMassal();
+
+      showToast(
+        gagal === 0 ? 'success' : 'warning',
+        'Absen Massal Selesai',
+        `${sukses} berhasil, ${duplikat} sudah absen sebelumnya, ${gagal} gagal.`
+      );
+
+      muatStatsHariIni();
+      if (!document.getElementById('sec-laporan').classList.contains('hidden')) {
+        muatSemuaRekap();
+      }
+    }
+
+    async function absenSemuaMurid() {
+      if (!listSiswa || listSiswa.length === 0) {
+        showToast('warning', 'Data Kosong', 'Belum ada data siswa terdaftar.');
+        return;
+      }
+
+      const tanggalSimulasi = document.getElementById('sim-tanggal-input').value;
+      const tanggalTampil = tanggalSimulasi ? formatTanggalIndoDisplay(tanggalSimulasi) : 'hari ini';
+
+      const [ty, tm, td] = tanggalSimulasi
+        ? tanggalSimulasi.split('-').map(Number)
+        : (() => { const n = new Date(); return [n.getFullYear(), n.getMonth() + 1, n.getDate()]; })();
+
+      const isMingguCek = new Date(ty, tm - 1, td).getDay() === 0;
+      let isLiburCek = false;
+      try {
+        const daftarLibur = await callAPI('getLiburManual', { tahun: ty, bulan: tm });
+        isLiburCek = (daftarLibur || []).includes(td);
+      } catch (e) {
+        console.error('Gagal cek libur manual:', e);
+      }
+
+      if (isMingguCek || isLiburCek) {
+        const alasan = isMingguCek ? 'hari Minggu' : 'hari libur';
+        const lanjutLibur = await showConfirmDialog(
+          `Tanggal ${tanggalTampil} adalah ${alasan}. Tetap absenkan SEMUA murid (${listSiswa.length} siswa) sebagai hadir?`,
+          'Peringatan: Hari Libur',
+          'Ya, Lanjutkan'
+        );
+        if (!lanjutLibur) return;
+      } else {
+        const yakin = await showConfirmDialog(
+          `Absenkan SEMUA murid (${listSiswa.length} siswa) sebagai hadir pada tanggal ${tanggalTampil}?`,
+          'Konfirmasi Absen Massal',
+          'Ya, Absenkan Semua'
+        );
+        if (!yakin) return;
+      }
+
+      const btn = document.getElementById('btn-absen-semua');
+      if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner spin"></i>'; }
+
+      let sukses = 0, duplikat = 0, gagal = 0;
+
+      for (let i = 0; i < listSiswa.length; i++) {
+        const s = listSiswa[i];
+        try {
+          const hasil = await callAPI('tapKartu', { uid: s.uid, tanggalSimulasi: tanggalSimulasi || undefined });
+          if (hasil.status === 'sukses') sukses++;
+          else if (hasil.status === 'duplikat') duplikat++;
+          else gagal++;
+        } catch (err) {
+          console.error('Gagal absen massal untuk', s.nama, err);
+          gagal++;
+        }
+      }
+
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-people-group"></i>'; }
+
+      showToast(
+        gagal === 0 ? 'success' : 'warning',
+        'Absen Massal Selesai',
+        `${sukses} berhasil, ${duplikat} sudah absen sebelumnya, ${gagal} gagal.`
+      );
+
+      muatStatsHariIni();
+      if (!document.getElementById('sec-laporan').classList.contains('hidden')) {
+        muatSemuaRekap();
+      }
     }
 
     function simulasikanTapSelected() {
@@ -1176,6 +1470,7 @@
       try {
         await callAPI('saveSiswa', { id, nisn, nama, kelas, uid });
         listSiswa = await callAPI('getSiswa');
+        siswaSudahDimuat = true;
         renderSiswaTable();
         populateSimulatorDropdown();
         closeModalSiswa();
@@ -1396,21 +1691,43 @@
       sel.value = String(valueDipakai).padStart(2, '0');
     }
 
-    async function muatRekap() {
+    // Ambil data getRekap sebulan penuh, TAPI di-cache per "tahun-bulan" -- dipakai bersama
+    // oleh Rekap Harian & Rekap Bulanan supaya tidak dobel request kalau bulannya sama.
+    async function pastikanDataRekapBulanSiap(tahun, bulan) {
+      const key = `${tahun}-${bulan}`;
+      if (rekapDataCacheKey !== key) {
+        dataRekapBulanIni = await callAPI('getRekap', { tahun, bulan }) || [];
+        rekapDataCacheKey = key;
+      }
+      return dataRekapBulanIni;
+    }
+
+    // Dipanggil saat tab "Rekap Absen" dipilih, atau navigasi tanggal pindah bulan.
+    // HANYA memuat Rekap Absen Harian -- Bulanan & Semester tetap terlipat & belum di-fetch.
+    async function muatRekapHarianTab() {
       const tbody = document.getElementById('table-presensi-body');
       const bulan = Number(document.getElementById('filter-bulan').value);
       const tahun = Number(document.getElementById('filter-tahun').value);
 
       populateFilterTanggal();
-      tbody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner spin"></i> Memuat data...</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner spin"></i> Memuat data...</td></tr>`;
 
       try {
-        dataRekapBulanIni = await callAPI('getRekap', { tahun, bulan }) || [];
-        console.log('[muatRekap] total baris bulan ini:', dataRekapBulanIni.length, dataRekapBulanIni);
+        await pastikanDataRekapBulanSiap(tahun, bulan);
         renderRekapHarian();
       } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-rose-500">Gagal memuat data: ${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-rose-500">Gagal memuat data: ${err.message}</td></tr>`;
       }
+    }
+
+    function toggleSortAbjadHarian() {
+      sortAbjadRekapHarian = !sortAbjadRekapHarian;
+      const icon = document.getElementById('icon-sort-harian');
+      if (icon) {
+        icon.classList.toggle('text-brand-500', !sortAbjadRekapHarian);
+        icon.classList.toggle('text-purple-600', sortAbjadRekapHarian);
+      }
+      renderRekapHarian();
     }
 
     function renderRekapHarian() {
@@ -1418,10 +1735,14 @@
       const tanggalTerpilih = document.getElementById('filter-tanggal').value; // string 2-digit, mis. "07"
 
       // p.tanggal formatnya "07/Agustus/2026" -> ambil 2 digit tanggal di depan, bandingkan sebagai STRING
-      const rekapHariIni = dataRekapBulanIni.filter(p => String(p.tanggal).split('/')[0] === tanggalTerpilih);
+      let rekapHariIni = dataRekapBulanIni.filter(p => String(p.tanggal).split('/')[0] === tanggalTerpilih);
+
+      if (sortAbjadRekapHarian) {
+        rekapHariIni = [...rekapHariIni].sort((a, b) => String(a.nama).localeCompare(String(b.nama), 'id'));
+      }
 
       if (rekapHariIni.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-slate-400">Belum ada riwayat presensi di tanggal ini.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-slate-400">Belum ada riwayat presensi di tanggal ini.</td></tr>`;
         return;
       }
 
@@ -1433,8 +1754,9 @@
         'Alpha': 'bg-rose-100 text-rose-700'
       };
 
-      tbody.innerHTML = rekapHariIni.map(p => `
+      tbody.innerHTML = rekapHariIni.map((p, i) => `
         <tr class="hover:bg-slate-50 transition">
+          <td class="px-4 py-2 text-slate-400 text-xs">${i + 1}</td>
           <td class="px-4 py-2 font-semibold text-slate-800 whitespace-nowrap">${p.nama}</td>
           <td class="px-4 py-2 text-slate-600 whitespace-nowrap">${p.kelas}</td>
           <td class="px-4 py-2 whitespace-nowrap">
@@ -1457,7 +1779,6 @@
       const bulan = Number(selBulan.value);
       const tahun = Number(selTahun.value);
 
-      // Pakai objek Date supaya perpindahan bulan/tahun (mis. tgl 1 -> mundur ke bulan lalu) otomatis benar
       const tglBaru = new Date(tahun, bulan - 1, tanggal);
       tglBaru.setDate(tglBaru.getDate() - 1);
 
@@ -1470,7 +1791,8 @@
       if (pindahBulan) {
         selBulan.value = bulanBaru;
         selTahun.value = tahunBaru;
-        await muatSemuaRekap(); // ambil ulang data bulan baru (ini juga membuat ulang opsi tanggal)
+        await muatRekapHarianTab(); // ambil ulang data bulan baru (ini juga membuat ulang opsi tanggal)
+        await refreshBagianRekapYangTerbuka();
       }
 
       selTanggal.value = String(tanggalBaru).padStart(2, '0');
@@ -1498,22 +1820,43 @@
       if (pindahBulan) {
         selBulan.value = bulanBaru;
         selTahun.value = tahunBaru;
-        await muatSemuaRekap(); // ambil ulang data bulan baru (ini juga membuat ulang opsi tanggal)
+        await muatRekapHarianTab(); // ambil ulang data bulan baru (ini juga membuat ulang opsi tanggal)
+        await refreshBagianRekapYangTerbuka();
       }
 
       selTanggal.value = String(tanggalBaru).padStart(2, '0');
       renderRekapHarian();
     }
 
-    async function muatSemuaRekap() {
-      const bulan = Number(document.getElementById('filter-bulan').value);
-      const tahun = Number(document.getElementById('filter-tahun').value);
-      await Promise.all([
-        muatRekap(),                     // ambil data & isi dataRekapBulanIni
-        muatLiburManual(tahun, bulan)    // ambil tanda libur manual dari spreadsheet (tersinkron semua orang)
-      ]);
-      renderRekapBulanan(); // hitung matriks bulanan dari data yang SAMA (tidak perlu request server baru)
-      muatRekapSemester(); // muat rekap per semester (independen, bulan sendiri Jan-Des)
+    // Dipakai bersama oleh onGantiFilterRekap & klikMuatUlang: refresh Bulanan/Semester
+    // HANYA kalau foldnya sedang terbuka (kalau tertutup, biarkan -- akan di-load saat dibuka nanti)
+    async function refreshBagianRekapYangTerbuka() {
+      const bulananTerbuka = !document.getElementById('rekap-bulanan-content').classList.contains('hidden');
+      if (bulananTerbuka) await pastikanRekapBulananSiap();
+
+      const semesterTerbuka = !document.getElementById('rekap-semester-content').classList.contains('hidden');
+      if (semesterTerbuka) await pastikanRekapSemesterSiap();
+    }
+
+    // Filter Bulan/Tahun diganti -> data bulan lama sudah tidak relevan, jadi Harian di-refresh.
+    // Cache Semester TIDAK dipaksa reset di sini (hemat request); pastikanRekapSemesterSiap()
+    // otomatis fetch ulang HANYA kalau tahun ajarannya benar-benar berbeda dari cache.
+    async function onGantiFilterRekap() {
+      await muatRekapHarianTab();
+      await refreshBagianRekapYangTerbuka();
+    }
+
+    // HANYA dipanggil saat tombol "Muat Ulang" diklik manual -> paksa ambil ulang SEMUA data,
+    // termasuk cache Rekap Semester (satu-satunya cara cache semester ini direfresh).
+    async function klikMuatUlang() {
+      rekapDataCacheKey = null;
+      rekapBulananCacheKey = null;
+      rekapSemesterCacheKey = null;
+
+      await muatRekapHarianTab();
+      await refreshBagianRekapYangTerbuka();
+
+      showToast('success', 'Data Dimuat Ulang', 'Rekap Absen sudah disegarkan dari spreadsheet.');
     }
 
     // --- LIBUR MANUAL (guru klik nomor tanggal di tabel bulanan untuk menandai libur) ---
@@ -1546,6 +1889,7 @@
 
     // --- BAGIKAN REKAP BULANAN ---
     async function shareRekapBulanan() {
+      await pastikanRekapBulananSiap(); // pastikan dataRekapBulanIni & setLiburManualBulanIni sudah terisi
       if (!listSiswa || listSiswa.length === 0) {
         showToast('warning', 'Data Kosong', 'Belum ada data siswa untuk dibagikan.');
         return;
@@ -1617,7 +1961,29 @@
       }
     }
 
-    function renderRekapBulanan() {
+async function toggleRekapBulanan() {
+      const content = document.getElementById('rekap-bulanan-content');
+      const chevron = document.getElementById('bulanan-chevron');
+      const sedangTertutup = content.classList.contains('hidden');
+      content.classList.toggle('hidden');
+      chevron.classList.toggle('rotate-180');
+      if (sedangTertutup) await pastikanRekapBulananSiap();
+    }
+    async function pastikanRekapBulananSiap() {
+      const bulan = Number(document.getElementById('filter-bulan').value);
+      const tahun = Number(document.getElementById('filter-tahun').value);
+      const cacheKey = `${tahun}-${bulan}`;
+      document.getElementById('table-bulanan-body').innerHTML = `<tr><td colspan="2" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner spin"></i> Memuat data...</td></tr>`;
+      await pastikanListSiswaTerbuat();
+      await pastikanDataRekapBulanSiap(tahun, bulan); // pakai cache yg sama dgn Rekap Harian kalau bulannya sama
+      if (rekapBulananCacheKey !== cacheKey) {
+        await muatLiburManual(tahun, bulan);
+        rekapBulananCacheKey = cacheKey;
+      }
+      renderRekapBulanan();
+    }
+
+      function renderRekapBulanan() {
       const thead = document.getElementById('table-bulanan-head');
       const tbody = document.getElementById('table-bulanan-body');
       const bulan = Number(document.getElementById('filter-bulan').value);
@@ -1753,20 +2119,36 @@
       `;
     }
 
-    async function muatRekapSemester() {
+    async function toggleRekapSemester() {
+      const content = document.getElementById('rekap-semester-content');
+      const chevron = document.getElementById('semester-chevron');
+      const sedangTertutup = content.classList.contains('hidden');
+      content.classList.toggle('hidden');
+      chevron.classList.toggle('rotate-180');
+
+      if (sedangTertutup) await pastikanRekapSemesterSiap();
+    }
+
+    async function pastikanRekapSemesterSiap() {
       const tbody = document.getElementById('table-semester-body');
       const bulanTerpilih = Number(document.getElementById('filter-bulan').value);
       const tahunTerpilih = Number(document.getElementById('filter-tahun').value);
       if (!bulanTerpilih || !tahunTerpilih) return;
 
-      // Tahun ajaran mengikuti dropdown Bulan+Tahun paling atas:
-      // Jika bulan terpilih Jan-Jun -> tahun itu adalah Semester GENAP, Ganjil = tahun sebelumnya
-      // Jika bulan terpilih Jul-Des -> tahun itu adalah Semester GANJIL, Genap = tahun berikutnya
       const isGenap = bulanTerpilih <= 6;
       const tahunGanjil = isGenap ? tahunTerpilih - 1 : tahunTerpilih;
       const tahunGenap = isGenap ? tahunTerpilih : tahunTerpilih + 1;
+      const cacheKey = `${tahunGanjil}-${tahunGenap}`;
 
-      tbody.innerHTML = `<tr><td colspan="10" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner spin"></i> Memuat data...</td></tr>`;
+      // Kalau tahun ajaran ini SUDAH pernah diambil di sesi ini, langsung render dari cache --
+      // TIDAK kirim 12 request lagi ke spreadsheet. Refresh hanya lewat tombol "Muat Ulang".
+      if (rekapSemesterCacheKey === cacheKey) {
+        renderRekapSemester(rekapSemesterCacheGanjil, rekapSemesterCacheGenap, tahunGanjil, tahunGenap);
+        return;
+      }
+
+      await pastikanListSiswaTerbuat();
+      tbody.innerHTML = `<tr><td colspan="10" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner spin"></i> Memuat data 2 semester (12 bulan)...</td></tr>`;
 
       try {
         const bulanGanjil = [7, 8, 9, 10, 11, 12]; // Semester Ganjil: Juli-Desember
@@ -1777,10 +2159,11 @@
           Promise.all(bulanGenap.map(b => callAPI('getRekap', { tahun: tahunGenap, bulan: b })))
         ]);
 
-        const rekapGanjil = dataGanjilPerBulan.flat();
-        const rekapGenap = dataGenapPerBulan.flat();
+        rekapSemesterCacheGanjil = dataGanjilPerBulan.flat();
+        rekapSemesterCacheGenap = dataGenapPerBulan.flat();
+        rekapSemesterCacheKey = cacheKey;
 
-        renderRekapSemester(rekapGanjil, rekapGenap, tahunGanjil, tahunGenap);
+        renderRekapSemester(rekapSemesterCacheGanjil, rekapSemesterCacheGenap, tahunGanjil, tahunGenap);
       } catch (err) {
         tbody.innerHTML = `<tr><td colspan="10" class="text-center py-6 text-rose-500">Gagal memuat data: ${err.message}</td></tr>`;
       }
